@@ -1,0 +1,338 @@
+[
+  {
+    "id": "tor_ociosidade_por_cargo_mensal",
+    "title": "Taxa de Ociosidade Relativa por Cargo (Mensal)",
+    "description": "Agrega a taxa de ociosidade com base no cargo institucional (ex: Desenvolvedor, Coordenador). Permite à liderança identificar se determinado nível hierárquico está com subnotificação sistemática ou subutilização de capacidade.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "cargo"
+    },
+    "formula_logic": "Agrupamento por profiles.cargo via join por person_id: Horas_Esperadas_Cargo = SUM(Profile.carga_horaria / 5 * DU_no_mês) para todos os membros ativos do cargo X. TOR_Cargo = (1 - SUM(TimeLog.hours WHERE person_id IN cargo_X) / Horas_Esperadas_Cargo) * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "cargo",
+      "y_axis": "ociosidade_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "dte_distribuicao_tematica_por_funcao_mensal",
+    "title": "Distribuição Temática do Esforço por Função Operacional",
+    "description": "Cruza a matriz de alocação de tempo (Projetos, Reuniões, Suporte) com a função prática do colaborador (ex: Líder de Projetos, Suporte). Avalia o desvio de escopo funcional (ex: Líder gastando muito tempo operacional).",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "funcao"
+    },
+    "formula_logic": "JOIN time_logs → profiles (via person_id) E time_logs → activities (via activity_id). GROUP BY profiles.funcao, activities.type → DTE_Funcao = SUM(TimeLog.hours no grupo) / SUM(TimeLog.hours total da funcao) * 100.",
+    "visualization": {
+      "default_chart": "table",
+      "x_axis": "funcao",
+      "y_axis": "percentual_esforco"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "horas_extras_serie_temporal_anual",
+    "title": "Evolução Anual de Horas Extraordinárias (Série Temporal)",
+    "description": "Visão macro e de longo prazo da sobrecarga da equipe. Identifica sazonalidades institucionais de picos de trabalho e ciclos críticos ao longo dos meses do ano civil.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "sum",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {
+        "is_overtime": true
+      },
+      "group_by": "mes_ano"
+    },
+    "formula_logic": "Filtra time_logs com is_overtime == true. Agrupa por ANO-MÊS extraído de log_date e realiza o SUM(hours) de cada intervalo temporal.",
+    "visualization": {
+      "default_chart": "line_chart",
+      "x_axis": "mes_ano",
+      "y_axis": "horas_extras_totais"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 120,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "tbc_taxa_bloqueio_serie_temporal_semanal",
+    "title": "Histórico Semanal da Taxa de Bloqueio da Carteira",
+    "description": "Acompanha a volatilidade e a tendência da Taxa de Bloqueio da Carteira semana a semana. Avalia se ações gerenciais estão surtindo efeito rápido no destravamento de projetos.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "percentage",
+      "field": "projects.status"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "table_name": "projects"
+      },
+      "group_by": "semana_ano"
+    },
+    "formula_logic": "Calcula a fotografia da TBC no último dia de cada semana epidemiológica/calendário baseando-se no estado consolidado dos projetos via snapshots ou reconstrução por audit_logs: (Qtd_Bloqueados / Qtd_Ativos_Na_Semana) * 100.",
+    "visualization": {
+      "default_chart": "line_chart",
+      "x_axis": "semana_ano",
+      "y_axis": "percentual_bloqueados"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 15,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "projetos_por_prioridade_status_matriz",
+    "title": "Matriz de Projetos Ativos por Prioridade e Status",
+    "description": "Cruza o nível de prioridade (crítica, alta, média, baixa) com o status atual do projeto. Crucial para identificar projetos críticos que estejam paralisados (bloqueados ou pausados).",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.id"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "priority"
+    },
+    "formula_logic": "COUNT(*) WHERE archived == false GROUP BY projects.priority, projects.status. Retorna uma matriz ou tabela bidimensional contendo as contagens cruzadas.",
+    "visualization": {
+      "default_chart": "table",
+      "x_axis": "status",
+      "y_axis": "contagem"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "atividades_concluidas_por_tipo_mensal",
+    "title": "Volume de Entregas Operacionais por Tipo de Atividade (Mensal)",
+    "description": "Mapeia a quantidade absoluta de tarefas concluídas com sucesso pela equipe no mês, segmentada por tipo. Demonstra a vazão operacional da esteira de serviços.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "concluida",
+        "archived": false
+      },
+      "group_by": "type"
+    },
+    "formula_logic": "COUNT(activities) WHERE status == 'concluida' AND archived == false AND updated_at (mês corrente) GROUP BY activities.type.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "type",
+      "y_axis": "contagem_concluidas"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 20,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "subnotificacao_critica_time_logs_diario",
+    "title": "Alerta Diário de Perfis sem Lançamento de Horas",
+    "description": "Identifica em tempo real colaboradores ativos que não realizaram nenhum lançamento de time_log no dia útil anterior. Ferramenta de controle higiênico de dados.",
+    "category": "auditoria_e_controle",
+    "aggregation": {
+      "type": "count",
+      "field": "profiles.id"
+    },
+    "dimensions": {
+      "filter_collection": "profiles",
+      "filters": {
+        "active": true,
+        "role": ["admin", "analista"]
+      },
+      "group_by": null
+    },
+    "formula_logic": "Filtra perfis ativos operacionais. Conta quantos perfis NÃO possuem correspondência em /time_logs com log_date == Data_Filtro. Card exibe a contagem e a tabela lista os nomes.",
+    "visualization": {
+      "default_chart": "table",
+      "x_axis": "full_name",
+      "y_axis": "status_pendencia"
+    },
+    "target_benchmark": {
+      "operator": "==",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "iap_desvio_prazo_por_categoria",
+    "title": "Índice de Aderência ao Prazo por Categoria de Projeto",
+    "description": "Avalia o atraso médio em dias agrupado por categoria estratégica. Permite identificar se projetos de uma natureza específica (ex: dados) sofrem gargalos crônicos de prazo.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.end_date"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": "category"
+    },
+    "formula_logic": "GROUP BY projects.category → AVG(DATEDIFF(Project.end_date, Project.deadline)) em dias para projetos concluídos.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "category",
+      "y_axis": "desvio_dias_medio"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "volume_projetos_por_gerente_status",
+    "title": "Distribuição de Projetos por Gerente e Status",
+    "description": "Apresenta a carga de projetos sob a responsabilidade de cada Gerente de Projetos (GP), dividida por status. Expõe visualmente desequilíbrios de carga gerencial.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.id"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "COUNT(projects) WHERE archived == false GROUP BY projects.responsible_id, projects.status. Usar projects.responsible_name para exibição.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "contagem_projetos"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 5,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "atividades_canceladas_por_responsavel",
+    "title": "Volume de Atividades Canceladas por Colaborador",
+    "description": "Mapeia a quantidade de tarefas que foram movidas para o status 'cancelada' por responsável. Padrões elevados podem apontar desperdício de esforço em planejamento ou mudança repentina de prioridades.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "cancelada",
+        "archived": false
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "COUNT(activities) WHERE status == 'cancelada' AND archived == false GROUP BY activities.responsible_id. Usar responsible_name como rótulo.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "contagem_canceladas"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 4,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "iac_sobrealocados_setor_resumo",
+    "title": "Total de Colaboradores Sobrealocados por Setor",
+    "description": "Métrica consolidada que contabiliza quantos colaboradores ativos em cada setor estão com o Índice de Alocação de Capacidade (IAC) acima de 100%. Direciona decisões de contratação ou remanejamento de pessoal entre setores.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.members.allocated_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento"],
+        "archived": false
+      },
+      "group_by": "setor"
+    },
+    "formula_logic": "Calcula o IAC de cada colaborador. Filtra os colaboradores onde IAC > 100. Agrupa esses profissionais pelo campo profile.setor e realiza o COUNT do total de pessoas qualificadas por setor.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "setor",
+      "y_axis": "quantidade_pessoas"
+    },
+    "target_benchmark": {
+      "operator": "==",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "tempo_ciclo_medio_por_setor_demandante",
+    "title": "Tempo de Ciclo Médio de Projetos por Setor Demandante",
+    "description": "Mede o lead time médio (em dias) do início à conclusão de projetos, agrupado pelo setor que originou a demanda. Revela se as requisições de determinados clientes internos sofrem com lentidão estrutural.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.end_date"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": "origem_demanda"
+    },
+    "formula_logic": "GROUP BY projects.origem_demanda → AVG(DATEDIFF(Project.end_date, Project.start_date)) em dias, para documentos da coleção /projects com status == 'concluido'.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "origem_demanda",
+      "y_axis": "cycle_time_dias"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "dias"
+    }
+  }
+]

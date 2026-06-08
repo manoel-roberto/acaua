@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if the user is authenticated with a @uefs.br email (or support admin)
+    function isUefs() {
+      return request.auth != null && (
+        request.auth.token.email.matches('.*@uefs\\.br$') ||
+        request.auth.token.email == 'admin@ngd.com'
+      );
+    }
+
+    // Helper function to check if the authenticated user is an admin
+    function isAdmin() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Profiles rules: Owner can write, any authenticated user can read profiles (needed for member/responsible names)
+    match /profiles/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow update: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow delete: if request.auth != null && (
+        isAdmin() || 
+        (resource != null && resource.data.email == request.auth.token.email)
+      );
+    }
+
+    // Projects rules
+    match /projects/{projectId} {
+      allow read, write: if isUefs();
+    }
+
+    // Activities rules
+    match /activities/{activityId} {
+      allow read, write: if isUefs();
+    }
+
+    // Time Logs rules
+    match /time_logs/{logId} {
+      allow read, write: if isUefs();
+    }
+
+    // Metrics rules
+    match /metrics/{metricId} {
+      allow read, write: if isUefs();
+    }
+
+    // Audit Logs rules
+    match /audit_logs/{logId} {
+      allow read, create: if isUefs();
+      allow update, delete: if false;
+    }
+
+    // Recurring Routines rules
+    match /recurring_routines/{routineId} {
+      allow read, write: if isUefs();
+    }
+
+    // Permissions rules
+    match /permissions/{roleId} {
+      allow read: if isUefs();
+      allow write: if isAdmin();
+    }
+
+    // Sectors rules
+    match /sectors/{sectorId} {
+      allow read, write: if isUefs();
+    }
+
+    // Activity types rules
+    match /activity_types/{typeId} {
+      allow read, write: if isUefs();
+    }
+
+    // Categories rules
+    match /categories/{categoryId} {
+      allow read, write: if isUefs();
+    }
+
+    // Indicators rules
+    match /indicators/{indicatorId} {
+      allow read: if isUefs();
+      allow write: if isAdmin() || (request.auth != null && request.auth.token.email == 'admin@ngd.com');
+    }
+  }
+}

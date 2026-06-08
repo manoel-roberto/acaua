@@ -1,0 +1,1558 @@
+[
+  {
+    "id": "pfm_carteira_geral",
+    "title": "Progresso Físico Médio da Carteira (Geral)",
+    "description": "Avalia a evolução física média de todos os projetos ativos (status em_andamento, planejamento ou bloqueado). Sinaliza se a carteira está avançando ou travada nas etapas iniciais.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.progress"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento", "bloqueado"],
+        "archived": false
+      },
+      "group_by": null
+    },
+    "formula_logic": "AVG(Project.progress) para todos os documentos da coleção /projects onde status IN ['em_andamento','planejamento','bloqueado'] AND archived == false.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "progress"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "pfm_por_categoria",
+    "title": "Progresso Físico Médio por Categoria de Projeto",
+    "description": "Decompõe o progresso físico médio por categoria estratégica (automacao, dados, desenvolvimento, etc.), permitindo identificar quais tipos de projetos apresentam maior ou menor avanço.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.progress"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento", "bloqueado"],
+        "archived": false
+      },
+      "group_by": "category"
+    },
+    "formula_logic": "GROUP BY projects.category → AVG(Project.progress) por grupo. Resultado: array de {category, avg_progress}.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "category",
+      "y_axis": "avg_progress"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "pfm_por_responsavel",
+    "title": "Progresso Físico Médio por Gerente de Projeto",
+    "description": "Avalia a performance de entrega física agrupada por gerente responsável. Permite identificar gestores com carteiras travadas ou com alta taxa de avanço.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.progress"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento", "bloqueado"],
+        "archived": false
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "GROUP BY projects.responsible_id → AVG(Project.progress) por grupo. Usar projects.responsible_name para rótulo visual.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "avg_progress"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "desvio_esforco_por_projeto",
+    "title": "Desvio de Esforço (Orçado vs. Realizado) por Projeto",
+    "description": "Mede o percentual de variação entre horas estimadas e horas executadas em cada projeto. Identifica projetos com subestimativa ou desperdício de esforço.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "ratio",
+      "field": "projects.executed_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "id"
+    },
+    "formula_logic": "((Project.executed_hours - Project.estimated_hours) / Project.estimated_hours) * 100. Calculado individualmente para cada projeto. Exclui projetos onde estimated_hours == 0.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "name",
+      "y_axis": "desvio_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 10,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "desvio_esforco_por_categoria",
+    "title": "Desvio de Esforço Médio por Categoria de Projeto",
+    "description": "Agrega o desvio de esforço (orçado vs. realizado) por categoria, revelando quais tipos de projeto apresentam erros crônicos de estimativa de horas.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.executed_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "category"
+    },
+    "formula_logic": "GROUP BY projects.category → AVG((executed_hours - estimated_hours) / estimated_hours * 100) por grupo.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "category",
+      "y_axis": "desvio_medio_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 15,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "iap_desvio_prazo_concluidos",
+    "title": "Índice de Aderência ao Prazo – Projetos Concluídos",
+    "description": "Mede a média de dias de desvio entre a data de conclusão real e o deadline estipulado para projetos finalizados. Valores positivos indicam atraso crônico.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.end_date"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": null
+    },
+    "formula_logic": "AVG(DATEDIFF(Project.end_date, Project.deadline)) em dias, somente para projetos onde status == 'concluido' e end_date != null e deadline != null.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "desvio_dias"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "iap_desvio_prazo_por_origem",
+    "title": "Desvio de Prazo por Setor Originador da Demanda",
+    "description": "Analisa se projetos provenientes de determinados setores tendem a atrasar mais, indicando possíveis gargalos de homologação ou alinhamento com o setor cliente.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.end_date"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": "origem_demanda"
+    },
+    "formula_logic": "GROUP BY projects.origem_demanda → AVG(DATEDIFF(Project.end_date, Project.deadline)) por grupo.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "origem_demanda",
+      "y_axis": "desvio_dias_medio"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 0,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "tbc_taxa_bloqueio_carteira",
+    "title": "Taxa de Bloqueio da Carteira de Projetos",
+    "description": "Percentual de projetos ativos que estão atualmente bloqueados. Valores acima de 15% sinalizam alta dependência externa ou falhas de governança.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "percentage",
+      "field": "projects.status"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": null
+    },
+    "formula_logic": "COUNT(projects WHERE status == 'bloqueado') / COUNT(projects WHERE status IN ['em_andamento','planejamento','bloqueado','pausado']) * 100.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "percentual_bloqueados"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 15,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "tbc_bloqueio_por_setor_origem",
+    "title": "Taxa de Bloqueio por Setor Originador",
+    "description": "Identifica quais setores clientes geram mais projetos bloqueados, sinalizando onde a gestão de relacionamento com demandantes precisa de atenção.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.status"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "bloqueado",
+        "archived": false
+      },
+      "group_by": "origem_demanda"
+    },
+    "formula_logic": "COUNT(projects WHERE status == 'bloqueado') GROUP BY projects.origem_demanda.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "origem_demanda",
+      "y_axis": "contagem_bloqueados"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "cycle_time_medio_por_categoria",
+    "title": "Tempo de Ciclo Médio de Projetos Concluídos por Categoria",
+    "description": "Calcula quantos dias, em média, um projeto leva do início à conclusão por categoria. Base para planejamento de cronogramas realistas e SLAs de entrega.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.end_date"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": "category"
+    },
+    "formula_logic": "GROUP BY projects.category → AVG(DATEDIFF(Project.end_date, Project.start_date)) em dias, somente onde status == 'concluido' e ambas as datas existem.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "category",
+      "y_axis": "cycle_time_dias"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "cycle_time_medio_por_responsavel",
+    "title": "Tempo de Ciclo Médio de Projetos por Gerente",
+    "description": "Avalia a velocidade de entrega de cada gerente de projetos com base nos projetos que concluiu. Ferramenta de análise de performance gerencial.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.end_date"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "GROUP BY projects.responsible_id → AVG(DATEDIFF(Project.end_date, Project.start_date)) em dias.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "cycle_time_dias"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "distribuicao_esforco_por_setor_origem",
+    "title": "Distribuição de Esforço (Horas) por Setor Originador da Demanda",
+    "description": "Mapeia quanto esforço (horas executadas) é consumido pelo núcleo para atender demandas de cada setor cliente, subsidiando decisões de priorização e precificação.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "sum",
+      "field": "projects.executed_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "origem_demanda"
+    },
+    "formula_logic": "GROUP BY projects.origem_demanda → SUM(Project.executed_hours) por grupo.",
+    "visualization": {
+      "default_chart": "pie_chart",
+      "x_axis": "origem_demanda",
+      "y_axis": "total_horas_executadas"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "distribuicao_carteira_por_status",
+    "title": "Distribuição da Carteira de Projetos por Status",
+    "description": "Fotografia atual da saúde da carteira: quantos projetos estão em cada status (planejamento, em_andamento, pausado, bloqueado, concluido, cancelado). Visão geral para a liderança.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.status"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "status"
+    },
+    "formula_logic": "COUNT(*) GROUP BY projects.status WHERE archived == false.",
+    "visualization": {
+      "default_chart": "pie_chart",
+      "x_axis": "status",
+      "y_axis": "contagem"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "distribuicao_carteira_por_prioridade",
+    "title": "Distribuição da Carteira de Projetos por Prioridade",
+    "description": "Mostra quantos projetos existem em cada nível de prioridade (baixa, media, alta, critica). Auxilia a verificar se a equipe está com foco em atividades críticas.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.priority"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "priority"
+    },
+    "formula_logic": "COUNT(*) GROUP BY projects.priority WHERE archived == false.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "priority",
+      "y_axis": "contagem"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "tor_ociosidade_individual_mensal",
+    "title": "Taxa de Ociosidade Relativa – Individual (Mensal)",
+    "description": "Mede quanto da carga horária contratual de cada colaborador não está sendo registrada em time_logs no mês. Identifica subnotificação de horas ou ociosidade real.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "person_id"
+    },
+    "formula_logic": "Para cada person_id: Horas_Esperadas = (Profile.carga_horaria / 5) * DU_no_mês. TOR = (1 - SUM(TimeLog.hours WHERE log_date IN mês) / Horas_Esperadas) * 100. Requer join com /profiles para obter carga_horaria.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "person_name",
+      "y_axis": "ociosidade_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "tor_ociosidade_por_setor_mensal",
+    "title": "Taxa de Ociosidade Relativa por Setor (Mensal)",
+    "description": "Agrega a ociosidade de todos os membros de cada setor, revelando se existem setores com capacidade produtiva subutilizada ou com subnotificação sistemática.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "setor"
+    },
+    "formula_logic": "Agrupamento por profiles.setor: Horas_Esperadas_Setor = SUM(Profile.carga_horaria / 5 * DU_no_mês) para todos os membros do setor. TOR_Setor = (1 - SUM(TimeLog.hours WHERE person_id IN setor) / Horas_Esperadas_Setor) * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "setor",
+      "y_axis": "ociosidade_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "ihe_horas_extras_individual_mensal",
+    "title": "Índice de Horas Extraordinárias – Individual (Mensal)",
+    "description": "Percentual de horas marcadas como overtime em relação ao total lançado no mês por colaborador. Detecta sobrecarga crônica e risco de burnout.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "person_id"
+    },
+    "formula_logic": "IHE = SUM(TimeLog.hours WHERE is_overtime == true AND person_id == X) / SUM(TimeLog.hours WHERE person_id == X) * 100. Agrupado por person_id e período mensal via log_date.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "person_name",
+      "y_axis": "percentual_overtime"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 10,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "ihe_horas_extras_setor_mensal",
+    "title": "Índice de Horas Extraordinárias por Setor (Mensal)",
+    "description": "Agrega o percentual de horas extras por setor, revelando pressões sistêmicas de carga em departamentos específicos.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "setor"
+    },
+    "formula_logic": "Para cada setor: IHE_Setor = SUM(TimeLog.hours WHERE is_overtime == true AND person_id IN setor) / SUM(TimeLog.hours WHERE person_id IN setor) * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "setor",
+      "y_axis": "percentual_overtime"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 10,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "ihe_serie_temporal_mensal",
+    "title": "Evolução Mensal de Horas Extraordinárias (Série Temporal)",
+    "description": "Exibe a tendência do índice de horas extras ao longo dos meses, permitindo identificar ciclos de sobrecarga (ex: final de ano, entrega de projetos críticos).",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "mes_ano"
+    },
+    "formula_logic": "Agrupar time_logs por ANO-MÊS extraído de log_date → IHE_Mensal = SUM(hours WHERE is_overtime == true) / SUM(hours) * 100 por grupo de mês.",
+    "visualization": {
+      "default_chart": "line_chart",
+      "x_axis": "mes_ano",
+      "y_axis": "percentual_overtime"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 10,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "dte_distribuicao_tematica_esforco_equipe",
+    "title": "Distribuição Temática do Esforço da Equipe (Geral)",
+    "description": "Mostra como o esforço total da equipe está distribuído entre os tipos de atividade (projeto, rotina, suporte, reunião, capacitação, atendimento). Essencial para avaliar se o time está focado em entrega de valor.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "activity_type"
+    },
+    "formula_logic": "JOIN time_logs → activities via activity_id. GROUP BY activities.type → DTE(tipo) = SUM(TimeLog.hours WHERE activity.type == X) / SUM(TimeLog.hours total) * 100.",
+    "visualization": {
+      "default_chart": "pie_chart",
+      "x_axis": "activity_type",
+      "y_axis": "percentual_esforco"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "dte_distribuicao_tematica_individual",
+    "title": "Distribuição Temática do Esforço por Colaborador",
+    "description": "Permite analisar individualmente como cada membro aloca seu tempo entre os tipos de atividade, identificando desequilíbrios na função exercida versus trabalho realizado.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "person_id"
+    },
+    "formula_logic": "Para cada person_id: JOIN time_logs → activities via activity_id. DTE_individual(tipo) = SUM(hours WHERE activity.type == X) / SUM(hours total para a pessoa) * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "activity_type",
+      "y_axis": "percentual_esforco"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "iac_indice_alocacao_capacidade_individual",
+    "title": "Índice de Alocação de Capacidade – Individual (IAC)",
+    "description": "Mede se os compromissos alocados de um colaborador em projetos ativos somados excedem sua carga horária semanal contratual. Acima de 100% indica sobrealocação.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "percentage",
+      "field": "projects.members.allocated_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento"],
+        "archived": false
+      },
+      "group_by": "profile_id"
+    },
+    "formula_logic": "Para cada profile_id: IAC = SUM(Project.members[i].allocated_hours WHERE profile_id == X e project.status IN ['em_andamento','planejamento']) / Profile.carga_horaria * 100. Requer expandir array members e join com /profiles.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "full_name",
+      "y_axis": "iac_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 100,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "iac_sobrealocados_lista",
+    "title": "Lista de Colaboradores Sobrealocados (IAC > 100%)",
+    "description": "Filtra diretamente os colaboradores cujo somatório de alocações semanais em projetos ativos ultrapassa a carga horária contratual. Acionável para realocação imediata.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.members.allocated_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento"],
+        "archived": false
+      },
+      "group_by": "profile_id"
+    },
+    "formula_logic": "Mesmo cálculo do IAC individual. Retorna apenas registros onde IAC > 100. COUNT de tais colaboradores para o card resumo.",
+    "visualization": {
+      "default_chart": "table",
+      "x_axis": "full_name",
+      "y_axis": "iac_percentual"
+    },
+    "target_benchmark": {
+      "operator": "==",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "capacidade_ociosa_setor",
+    "title": "Capacidade Produtiva Ociosa por Setor (Horas/Semana)",
+    "description": "Calcula quantas horas semanais de capacidade contratada estão disponíveis no setor e não estão comprometidas em projetos ativos. Subsidia decisões de recepção de novas demandas.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "ratio",
+      "field": "profiles.carga_horaria"
+    },
+    "dimensions": {
+      "filter_collection": "profiles",
+      "filters": {
+        "active": true
+      },
+      "group_by": "setor"
+    },
+    "formula_logic": "Capacidade_Total_Setor = SUM(Profile.carga_horaria) para membros ativos do setor. Alocado_Setor = SUM(Project.members[i].allocated_hours) para projetos ativos onde profile.setor == X. Ocioso = Capacidade_Total_Setor - Alocado_Setor.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "setor",
+      "y_axis": "horas_ociosas"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "produtividade_global_mensal",
+    "title": "Taxa de Produtividade Global da Equipe (Mensal)",
+    "description": "Percentual da capacidade horária total da equipe que foi efetivamente registrada em time_logs no mês. Leitura rápida do pulso operacional da equipe.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": null
+    },
+    "formula_logic": "Pode ser lido diretamente do campo /metrics/global.productivity_pct (atualizado incrementalmente). Fórmula base: SUM(TimeLog.hours no mês) / metrics/global.expected_hours_month * 100.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "productivity_pct"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 80,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "produtividade_individual_semanal",
+    "title": "Taxa de Produtividade Individual (Semanal)",
+    "description": "Mede quanto da carga horária semanal de cada colaborador foi registrada em time_logs na semana corrente. Permite identificar desvios antes do fechamento mensal.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "person_id"
+    },
+    "formula_logic": "Para cada person_id: Horas_Esperadas_Semana = Profile.carga_horaria. Produtividade = SUM(TimeLog.hours WHERE log_date IN semana atual AND person_id == X) / Profile.carga_horaria * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "person_name",
+      "y_axis": "produtividade_percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 80,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "apd_aderencia_planejamento_diario_equipe",
+    "title": "Aderência ao Planejamento Diário de Tarefas – Equipe",
+    "description": "Mede o percentual de atividades planejadas para o dia que foram efetivamente concluídas. Valores abaixo de 80% indicam planejamento irreal ou excesso de interrupções.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "percentage",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "activity_date"
+    },
+    "formula_logic": "APD_dia = COUNT(activities WHERE status == 'concluida' AND activity_date == D) / COUNT(activities WHERE activity_date == D) * 100.",
+    "visualization": {
+      "default_chart": "line_chart",
+      "x_axis": "activity_date",
+      "y_axis": "apd_percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 80,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "apd_aderencia_planejamento_diario_individual",
+    "title": "Aderência ao Planejamento Diário por Colaborador",
+    "description": "Detalha a taxa de cumprimento das tarefas planejadas individualmente, permitindo identificar colaboradores com padrões de execução abaixo do esperado.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "percentage",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "GROUP BY activities.responsible_id → APD_individual = COUNT(status == 'concluida' AND activity_date IN período) / COUNT(activity_date IN período) * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "apd_percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 80,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "iddt_desvio_duracao_tarefa_por_tipo",
+    "title": "Índice de Desvio de Duração de Tarefa por Tipo de Atividade",
+    "description": "Avalia a precisão de estimativa de tempo por categoria de atividade. Desvios sistemáticos acima de +20% apontam necessidade de recalibração das estimativas para aquele tipo.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "avg",
+      "field": "activities.hours_executed"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "concluida"
+      },
+      "group_by": "type"
+    },
+    "formula_logic": "GROUP BY activities.type → AVG((hours_executed - hours_planned) / hours_planned * 100) somente para activities onde status == 'concluida' e hours_planned > 0.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "type",
+      "y_axis": "desvio_medio_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "iddt_desvio_duracao_por_colaborador",
+    "title": "Índice de Desvio de Duração de Tarefa por Colaborador",
+    "description": "Identifica colaboradores com padrão sistemático de subestimativa ou superestimativa na duração de suas tarefas. Fundamenta ações de mentoria e capacitação em estimativas.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "avg",
+      "field": "activities.hours_executed"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "concluida"
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "GROUP BY activities.responsible_id → AVG((hours_executed - hours_planned) / hours_planned * 100) para atividades concluídas com hours_planned > 0.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "desvio_medio_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "sla_resolucao_atividades_criticas",
+    "title": "SLA de Resolução de Atividades Críticas e de Alta Prioridade",
+    "description": "Mede o tempo médio (em horas) desde a criação até a conclusão de atividades de prioridade 'critica' ou 'alta'. Fundamental para monitorar contratos de nível de serviço.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "activities.updated_at"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "priority": ["critica", "alta"],
+        "status": "concluida"
+      },
+      "group_by": null
+    },
+    "formula_logic": "AVG(HOURS_DIFF(Activity.updated_at, Activity.created_at)) somente para activities onde status == 'concluida' AND priority IN ['critica','alta'].",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "horas_resolucao"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 48,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "sla_resolucao_por_tipo_atividade",
+    "title": "SLA Médio de Resolução por Tipo de Atividade",
+    "description": "Compara o tempo médio de conclusão entre os diferentes tipos de atividade (suporte, reuniao, projeto, etc.), evidenciando quais categorias de trabalho demoram mais para ser finalizadas.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "activities.updated_at"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "concluida"
+      },
+      "group_by": "type"
+    },
+    "formula_logic": "GROUP BY activities.type → AVG(HOURS_DIFF(Activity.updated_at, Activity.created_at)) para atividades concluídas.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "type",
+      "y_axis": "horas_resolucao_media"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 72,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "tempo_medio_em_andamento_kanban",
+    "title": "Tempo Médio de Tarefas no Status 'em_andamento' (Kanban WIP)",
+    "description": "Mede quanto tempo as atividades ficam no status em_andamento antes de avançar. Tempos longos indicam tarefas grandes demais (necessidade de quebra) ou bloqueios não declarados.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "avg",
+      "field": "audit_logs.created_at"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "table_name": "activities",
+        "old_status": "em_andamento"
+      },
+      "group_by": null
+    },
+    "formula_logic": "Para cada record_id em audit_logs: Tempo_em_andamento = created_at(WHERE new_status != 'em_andamento' E old_status == 'em_andamento') - created_at(WHERE new_status == 'em_andamento'). AVG desse delta em horas/dias.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "dias_em_andamento"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 3,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "tempo_medio_bloqueada_kanban",
+    "title": "Tempo Médio de Tarefas no Status 'bloqueada' (TMSB)",
+    "description": "Mede a velocidade da gestão em resolver impedimentos. Quanto menor o TMSB, mais ágil é a liderança na remoção de bloqueios.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "avg",
+      "field": "audit_logs.created_at"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "table_name": "activities",
+        "old_status": "bloqueada"
+      },
+      "group_by": null
+    },
+    "formula_logic": "Para cada record_id em audit_logs: Tempo_bloqueado = created_at(WHERE old_status == 'bloqueada' E new_status != 'bloqueada') - created_at(WHERE new_status == 'bloqueada'). AVG em horas.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "horas_bloqueado"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 24,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "tmsb_bloqueio_projetos",
+    "title": "Tempo Médio em Bloqueio – Projetos",
+    "description": "Similar ao TMSB de atividades, mas focado em projetos. Mede quanto tempo projetos inteiros ficam bloqueados antes de retonar ao fluxo ativo.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "avg",
+      "field": "audit_logs.created_at"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "table_name": "projects",
+        "old_status": "bloqueado"
+      },
+      "group_by": null
+    },
+    "formula_logic": "Para cada record_id em audit_logs (table_name == 'projects'): Delta = created_at(WHERE old_status == 'bloqueado') até created_at(WHERE new_status != 'bloqueado' para mesmo record_id). AVG em dias.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "dias_bloqueado"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 5,
+      "unit": "dias"
+    }
+  },
+  {
+    "id": "volume_retrabalho_retorno_pendente",
+    "title": "Volume de Retrabalho – Tarefas que Retornaram a 'pendente'",
+    "description": "Conta quantas atividades tiveram seu status revertido de 'em_andamento' ou 'concluida' de volta para 'pendente'. Alto volume indica retrabalho e instabilidade de execução.",
+    "category": "auditoria_e_controle",
+    "aggregation": {
+      "type": "count",
+      "field": "audit_logs.new_status"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "table_name": "activities",
+        "new_status": "pendente",
+        "old_status": ["em_andamento", "concluida"]
+      },
+      "group_by": null
+    },
+    "formula_logic": "COUNT(audit_logs WHERE table_name == 'activities' AND new_status == 'pendente' AND old_status IN ['em_andamento','concluida'] no período T).",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "contagem_retrabalho"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 5,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "volume_retrabalho_por_projeto",
+    "title": "Volume de Retrabalho por Projeto",
+    "description": "Identifica projetos com maior incidência de reversão de status em suas atividades. Pode indicar escopo mal definido ou dependências não resolvidas naquele projeto.",
+    "category": "auditoria_e_controle",
+    "aggregation": {
+      "type": "count",
+      "field": "audit_logs.new_status"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "table_name": "activities",
+        "new_status": "pendente",
+        "old_status": ["em_andamento", "concluida"]
+      },
+      "group_by": "record_id"
+    },
+    "formula_logic": "JOIN audit_logs → activities via record_id para obter project_id. COUNT(retrabalhos) GROUP BY activities.project_id. Usar activities.project_name para rótulo.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "project_name",
+      "y_axis": "contagem_retrabalho"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 3,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "fac_frequencia_alteracoes_criticas",
+    "title": "Frequência de Alterações Críticas de Status (Geral)",
+    "description": "Conta o total de mudanças de status registradas no audit_log em um período. Alta frequência pode indicar instabilidade operacional ou boa prática de atualização. Cruzar com contexto.",
+    "category": "auditoria_e_controle",
+    "aggregation": {
+      "type": "count",
+      "field": "audit_logs.action"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "action": "UPDATE_STATUS"
+      },
+      "group_by": null
+    },
+    "formula_logic": "COUNT(audit_logs WHERE action == 'UPDATE_STATUS' AND created_at IN período T).",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "contagem_alteracoes"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "fac_alteracoes_por_usuario",
+    "title": "Frequência de Alterações de Status por Usuário",
+    "description": "Identifica quem mais altera status no sistema. Permite distinguir usuários hiperativos (boa prática de atualização) de possíveis erros ou mudanças excessivas.",
+    "category": "auditoria_e_controle",
+    "aggregation": {
+      "type": "count",
+      "field": "audit_logs.action"
+    },
+    "dimensions": {
+      "filter_collection": "audit_logs",
+      "filters": {
+        "action": "UPDATE_STATUS"
+      },
+      "group_by": "user_id"
+    },
+    "formula_logic": "COUNT(audit_logs WHERE action == 'UPDATE_STATUS') GROUP BY audit_logs.user_id. Usar user_email para rótulo visual.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "user_email",
+      "y_axis": "contagem_alteracoes"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "conformidade_preenchimento_log",
+    "title": "Conformidade de Preenchimento de Time Logs (Retroatividade)",
+    "description": "Analisa se os lançamentos de horas são feitos no mesmo dia do trabalho ou retroativamente. Lançamentos muito tardios reduzem a confiabilidade dos dados de produtividade.",
+    "category": "auditoria_e_controle",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.created_at"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "person_id"
+    },
+    "formula_logic": "Para cada log: Atraso = DATEDIFF(DATE(TimeLog.created_at), TimeLog.log_date) em dias. Conformidade_individual = COUNT(logs WHERE Atraso <= 1) / COUNT(total logs da pessoa) * 100.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "person_name",
+      "y_axis": "conformidade_percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 80,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "egr_desvio_execucao_rotinas",
+    "title": "Eficiência de Geração de Rotinas Recorrentes (Desvio de Execução)",
+    "description": "Verifica se as tarefas de rotinas recorrentes estão sendo criadas na data esperada pelo worker/cron. Qualquer desvio indica falha no processo de automação.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "activities.routine_id"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "routine_id": "!= null"
+      },
+      "group_by": "routine_id"
+    },
+    "formula_logic": "JOIN activities → recurring_routines via routine_id. Desvio = DATEDIFF(Activity.activity_date, RecurringRoutine.next_run_expected). COUNT(activities WHERE desvio != 0) por rotina.",
+    "visualization": {
+      "default_chart": "table",
+      "x_axis": "routine_title",
+      "y_axis": "contagem_desvios"
+    },
+    "target_benchmark": {
+      "operator": "==",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "ratio_rotinas_vs_tarefas_espontaneas",
+    "title": "Proporção de Tarefas Automáticas vs. Espontâneas",
+    "description": "Compara a quantidade de atividades geradas automaticamente por rotinas recorrentes versus tarefas criadas manualmente. Elevado percentual de tarefas espontâneas pode indicar falta de padronização de processos.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "percentage",
+      "field": "activities.routine_id"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "archived": false
+      },
+      "group_by": null
+    },
+    "formula_logic": "Automaticas = COUNT(activities WHERE routine_id != null). Espontaneas = COUNT(activities WHERE routine_id == null). Ratio = Automaticas / (Automaticas + Espontaneas) * 100.",
+    "visualization": {
+      "default_chart": "pie_chart",
+      "x_axis": "origem",
+      "y_axis": "percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 40,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "horas_por_projeto_serie_temporal",
+    "title": "Consumo de Horas por Projeto ao Longo do Tempo",
+    "description": "Exibe a evolução do consumo de horas executadas em cada projeto semana a semana, identificando aceleração ou desaceleração na execução.",
+    "category": "esforco_e_capacidade",
+    "aggregation": {
+      "type": "sum",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {
+        "project_id": "!= null"
+      },
+      "group_by": "project_id"
+    },
+    "formula_logic": "GROUP BY (time_logs.project_id, WEEK(time_logs.log_date)) → SUM(hours). Usar time_logs.project_name para rótulo.",
+    "visualization": {
+      "default_chart": "line_chart",
+      "x_axis": "semana",
+      "y_axis": "horas_executadas"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "total_horas_registradas_setor_mensal",
+    "title": "Total de Horas Registradas por Setor (Mensal)",
+    "description": "Soma de todas as horas lançadas por membros de cada setor no mês. Indica o volume de trabalho registrado e permite comparações de produção entre setores.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "sum",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "setor"
+    },
+    "formula_logic": "JOIN time_logs → profiles via person_id para obter profiles.setor. GROUP BY profiles.setor → SUM(TimeLog.hours WHERE log_date IN mês atual).",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "setor",
+      "y_axis": "total_horas"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "horas_suporte_vs_projeto_mensal",
+    "title": "Razão Horas de Suporte vs. Horas de Projeto (Mensal)",
+    "description": "Compara o volume de horas gastas em atividades de suporte versus atividades de projeto. Percentual de suporte acima de 30% pode indicar instabilidade nos sistemas mantidos.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "ratio",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "activity_type"
+    },
+    "formula_logic": "Horas_Suporte = SUM(TimeLog.hours WHERE activity.type == 'suporte'). Horas_Projeto = SUM(TimeLog.hours WHERE activity.type == 'projeto'). Ratio = Horas_Suporte / Horas_Projeto. Exige join time_logs → activities.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "ratio_suporte_projeto"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 0.3,
+      "unit": "ratio"
+    }
+  },
+  {
+    "id": "horas_reuniao_percentual_mensal",
+    "title": "Percentual de Horas em Reuniões (Mensal)",
+    "description": "Percentual do esforço total consumido em reuniões no mês. Acima de 20% aponta 'reuniofagia' e necessidade de revisão da cultura de reuniões.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": null
+    },
+    "formula_logic": "JOIN time_logs → activities via activity_id. Percentual_Reuniao = SUM(hours WHERE activity.type == 'reuniao') / SUM(hours total no período) * 100.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "percentual_reuniao"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "horas_capacitacao_percentual_mensal",
+    "title": "Percentual de Horas em Capacitação (Mensal)",
+    "description": "Monitora o investimento da equipe em desenvolvimento de competências. Percentuais muito baixos podem indicar cultura organizacional de baixo investimento em formação.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": null
+    },
+    "formula_logic": "JOIN time_logs → activities via activity_id. Percentual_Capacitacao = SUM(hours WHERE activity.type == 'capacitacao') / SUM(hours total no período) * 100.",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "percentual_capacitacao"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "contagem_atividades_bloqueadas_atual",
+    "title": "Quantidade Atual de Atividades Bloqueadas",
+    "description": "Snapshot em tempo real do número de atividades no status bloqueada. Permite ação imediata da liderança para remoção de impedimentos.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "bloqueada",
+        "archived": false
+      },
+      "group_by": null
+    },
+    "formula_logic": "COUNT(activities WHERE status == 'bloqueada' AND archived == false).",
+    "visualization": {
+      "default_chart": "card",
+      "x_axis": null,
+      "y_axis": "contagem_bloqueadas"
+    },
+    "target_benchmark": {
+      "operator": "==",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "contagem_atividades_por_status",
+    "title": "Distribuição de Atividades por Status (Kanban)",
+    "description": "Visão geral do quadro Kanban: quantas atividades existem em cada status (pendente, em_andamento, concluida, bloqueada, cancelada). Identifica gargalos na esteira de entrega.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "status"
+    },
+    "formula_logic": "COUNT(*) GROUP BY activities.status WHERE archived == false.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "status",
+      "y_axis": "contagem"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "esforco_capacitacao_por_colaborador",
+    "title": "Horas de Capacitação por Colaborador (Mensal)",
+    "description": "Mostra o investimento individual em capacitação de cada membro, permitindo identificar quem está se desenvolvendo e quem pode precisar de incentivo ou acesso a treinamentos.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "sum",
+      "field": "time_logs.hours"
+    },
+    "dimensions": {
+      "filter_collection": "time_logs",
+      "filters": {},
+      "group_by": "person_id"
+    },
+    "formula_logic": "JOIN time_logs → activities via activity_id WHERE activities.type == 'capacitacao'. GROUP BY time_logs.person_id → SUM(hours) no período.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "person_name",
+      "y_axis": "horas_capacitacao"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 2,
+      "unit": "horas"
+    }
+  },
+  {
+    "id": "backlog_atividades_pendentes_por_responsavel",
+    "title": "Backlog de Atividades Pendentes por Responsável",
+    "description": "Conta quantas atividades estão aguardando execução para cada colaborador, identificando gargalos individuais e sobrecarga de backlog.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "activities.status"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "pendente",
+        "archived": false
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "COUNT(activities WHERE status == 'pendente' AND archived == false) GROUP BY activities.responsible_id.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "contagem_pendentes"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 10,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "distribuicao_demandas_por_setor_ativo",
+    "title": "Volume de Projetos Ativos por Setor Originador",
+    "description": "Mostra quantos projetos ativos foram originados de cada setor. Permite entender a distribuição da carga de demanda de desenvolvimento entre os clientes internos.",
+    "category": "qualidade_e_operacoes",
+    "aggregation": {
+      "type": "count",
+      "field": "projects.origem_demanda"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento"],
+        "archived": false
+      },
+      "group_by": "origem_demanda"
+    },
+    "formula_logic": "COUNT(projects WHERE status IN ['em_andamento','planejamento'] AND archived == false) GROUP BY projects.origem_demanda.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "origem_demanda",
+      "y_axis": "contagem_projetos"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "contagem"
+    }
+  },
+  {
+    "id": "progresso_fisico_vs_esforco_realizado",
+    "title": "Comparativo: Progresso Físico vs. Esforço Realizado por Projeto",
+    "description": "Cruza o progresso declarado (%) com o percentual de horas já consumidas do total estimado. Divergências elevadas (ex: 30% físico com 70% de horas consumidas) sinalizam projetos em colapso de esforço.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "ratio",
+      "field": "projects.progress"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": ["em_andamento", "planejamento"],
+        "archived": false
+      },
+      "group_by": "id"
+    },
+    "formula_logic": "Para cada projeto: Percentual_Horas_Consumidas = (Project.executed_hours / Project.estimated_hours) * 100. Eficiencia_Fisica = Project.progress / Percentual_Horas_Consumidas. Ratio < 1 indica ineficiência.",
+    "visualization": {
+      "default_chart": "table",
+      "x_axis": "name",
+      "y_axis": "eficiencia_fisica"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 0.9,
+      "unit": "ratio"
+    }
+  },
+  {
+    "id": "aderencia_escala_horaria_individual",
+    "title": "Aderência à Escala Horária Planejada por Colaborador",
+    "description": "Mede o percentual de atividades em que o horário de início executado coincide com o planejado (tolerância de ±15 min). Avalia disciplina no cumprimento da grade de trabalho diária.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "percentage",
+      "field": "activities.start_time_executed"
+    },
+    "dimensions": {
+      "filter_collection": "activities",
+      "filters": {
+        "status": "concluida"
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "Para cada atividade concluída com start_time_planned e start_time_executed preenchidos: Diff = ABS(TIME_TO_MINUTES(start_time_executed) - TIME_TO_MINUTES(start_time_planned)). Aderente = Diff <= 15 min. Aderencia = COUNT(aderentes) / COUNT(total) * 100 por responsible_id.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "aderencia_percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 70,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "eficiencia_estimativa_projetos_concluidos",
+    "title": "Eficiência de Estimativa de Projetos Concluídos por Responsável",
+    "description": "Avalia a qualidade do planejamento de cada gerente ao comparar horas estimadas com realizadas nos projetos que finalizaram. Gerentes com desvio acima de 30% necessitam de suporte em planejamento.",
+    "category": "eficiencia",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.executed_hours"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "status": "concluido"
+      },
+      "group_by": "responsible_id"
+    },
+    "formula_logic": "GROUP BY projects.responsible_id → AVG(ABS(executed_hours - estimated_hours) / estimated_hours * 100) para projetos concluídos.",
+    "visualization": {
+      "default_chart": "bar_chart",
+      "x_axis": "responsible_name",
+      "y_axis": "desvio_estimativa_percentual"
+    },
+    "target_benchmark": {
+      "operator": "<=",
+      "value": 30,
+      "unit": "%"
+    }
+  },
+  {
+    "id": "evolucao_progresso_medio_mensal",
+    "title": "Evolução Mensal do Progresso Médio da Carteira",
+    "description": "Série temporal do progresso físico médio da carteira de projetos mês a mês. Permite verificar se a equipe está acelerando entregas ou estagnando ao longo do tempo.",
+    "category": "prazo_e_entrega",
+    "aggregation": {
+      "type": "avg",
+      "field": "projects.progress"
+    },
+    "dimensions": {
+      "filter_collection": "projects",
+      "filters": {
+        "archived": false
+      },
+      "group_by": "mes_ano_updated_at"
+    },
+    "formula_logic": "Requer snapshots históricos armazenados ou leitura de /audit_logs de mudanças de progresso. Se disponível: AVG(Project.progress) no corte do último dia de cada mês, GROUP BY mes_ano.",
+    "visualization": {
+      "default_chart": "line_chart",
+      "x_axis": "mes_ano",
+      "y_axis": "progresso_medio_percentual"
+    },
+    "target_benchmark": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "%"
+    }
+  }
+]
