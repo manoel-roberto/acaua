@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { db, auth } from "@/lib/firebase/client";
-import { doc, onSnapshot, collection, getDocs, writeBatch, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, collection, getDocs, writeBatch, setDoc } from "firebase/firestore";
 import { useAuthContext } from "@/context/AuthContext";
 import { GlobalMetrics, Project, Activity, TimeLog, UserProfile } from "@/types";
 import { ALL_INDICATORS, Indicator } from "@/constants/indicators";
@@ -79,9 +79,10 @@ export default function DashboardPage() {
 
   const saveExpectedHours = async (value: number) => {
     try {
-      await updateDoc(doc(db, "metrics", "global"), {
-        expected_hours_month: value
-      });
+      await setDoc(doc(db, "metrics", "global"), {
+        expected_hours_month: value,
+        last_updated: new Date().toISOString()
+      }, { merge: true });
     } catch (e) {
       console.error("Erro ao salvar horas esperadas no Firestore:", e);
     }

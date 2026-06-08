@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase/client";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 
 /**
  * Atualiza o limite de dias para arquivamento automático de projetos e atividades concluídas.
@@ -7,8 +7,9 @@ import { doc, updateDoc } from "firebase/firestore";
  */
 export async function updateArchiveDaysLimit(days: number): Promise<void> {
   const metricsRef = doc(db, "metrics", "global");
-  await updateDoc(metricsRef, {
+  await setDoc(metricsRef, {
     archive_days_limit: days,
     last_updated: new Date().toISOString(),
-  });
+  }, { merge: true });
 }
+
