@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  firebase:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: acaua-firebase
+    command: firebase emulators:start --import=/app/firebase-data --export-on-exit=/app/firebase-data
+    stop_grace_period: 1m
+    ports:
+      - "4000:4000" # Firebase Emulator UI
+      - "5000:5000" # Firebase Hosting Emulator
+      - "8080:8080" # Firestore Emulator
+      - "9099:9099" # Auth Emulator
+    volumes:
+      - .:/app
+    environment:
+      - FIREBASE_EMULATORS_PATH=/app/.firebase_cache
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: acaua-web
+    command: pnpm dev
+    ports:
+      - "3000:3000" # Next.js Dev Server
+    volumes:
+      - .:/app
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    depends_on:
+      - firebase

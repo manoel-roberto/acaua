@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+# Install Java JRE and bash (required by Firebase emulators)
+RUN apk add --no-cache openjdk17-jre bash
+
+# Enable pnpm globally
+RUN npm install -g pnpm
+
+# Install firebase-tools globally so it's always available inside the containers
+RUN npm install -g firebase-tools
+
+WORKDIR /app
+
+# Expose Next.js dev port
+EXPOSE 3000
+
+# By default, start Next.js development server
+CMD ["pnpm", "dev"]
