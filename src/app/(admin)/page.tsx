@@ -250,17 +250,6 @@ export default function DashboardPage() {
     );
   }, [filteredData, profiles, sectorFilter, responsibleFilter, diasUteisNoPeriodo, customBenchmarks]);
 
-  if (loading) {
-    return (
-      <div className="flex h-[50vh] flex-col items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-850 border-t-emerald-500"></div>
-        <p className="mt-4 text-xs font-semibold text-zinc-550 uppercase tracking-widest">
-          Carregando Dashboard de Indicadores...
-        </p>
-      </div>
-    );
-  }
-
   // Métricas do metrics/global
   const displayMetrics: GlobalMetrics = {
     projects_active: globalMetrics?.projects_active ?? 0,
@@ -301,6 +290,17 @@ export default function DashboardPage() {
   const expectedHours = expectedHoursFiltered || 160;
   const productivity = expectedHours > 0 ? Math.min((totalHoursFiltered / expectedHours) * 105, 100) : 0;
   const idleness = Math.max(100 - productivity, 0);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] flex-col items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-850 border-t-emerald-500"></div>
+        <p className="mt-4 text-xs font-semibold text-zinc-550 uppercase tracking-widest">
+          Carregando Dashboard de Indicadores...
+        </p>
+      </div>
+    );
+  }
 
   // Filtragem dos widgets a serem exibidos com base na aba ativa
   const widgetsToShow = ALL_INDICATORS.filter(
