@@ -94,6 +94,10 @@ export function calculateIndicators(
         calcVal = items.length;
       } else if (type === "sum") {
         calcVal = items.reduce((sum, item) => sum + (Number(item[field]) || 0), 0);
+        if (ind.id === "fte_efetivo_carteira_mensal") {
+          const hoursPerFTE = (diasUteisNoPeriodo * 8) || 160;
+          calcVal = calcVal / hoursPerFTE;
+        }
       } else if (type === "avg") {
         if (ind.id === "sla_resolucao_atividades_criticas" || ind.id === "sla_resolucao_por_tipo_atividade") {
           const totalHours = items.reduce((sum, item) => {
@@ -195,6 +199,10 @@ export function calculateIndicators(
           groupVal = groupItems.length;
         } else if (type === "sum") {
           groupVal = groupItems.reduce((s, it) => s + (Number(it[field]) || 0), 0);
+          if (ind.id === "fte_efetivo_por_setor_mensal") {
+            const hoursPerFTE = (diasUteisNoPeriodo * 8) || 160;
+            groupVal = groupVal / hoursPerFTE;
+          }
         } else if (type === "avg") {
           groupVal = groupItems.reduce((s, it) => s + (Number(it[field]) || 0), 0) / groupItems.length;
         } else if (type === "percentage") {

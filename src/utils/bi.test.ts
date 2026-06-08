@@ -190,4 +190,17 @@ describe("Dashboard BI Engine - Lógica de Indicadores", () => {
     // Suporte = 15h. Projeto = 30h. Razão = 15 / 30 = 0.5
     expect(results["horas_suporte_vs_projeto_mensal"].value).toBe(0.5);
   });
+
+  it("deve calcular corretamente o FTE Efetivo da carteira baseado nos dias úteis do período", () => {
+    const data = createEmptyData();
+    // 10 dias úteis = 80 horas de trabalho esperado para 1 FTE.
+    // 240 horas registradas devem resultar em exatamente 3.0 FTEs.
+    data.timeLogs = [
+      { id: "t1", person_id: "u1", project_id: "p1", hours: 100 } as TimeLog,
+      { id: "t2", person_id: "u2", project_id: "p2", hours: 140 } as TimeLog,
+    ];
+
+    const results = calculateIndicators(data, [], "todos", "todos", 10, {});
+    expect(results["fte_efetivo_carteira_mensal"].value).toBe(3.0);
+  });
 });

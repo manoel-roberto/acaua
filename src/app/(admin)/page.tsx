@@ -275,8 +275,31 @@ export default function DashboardPage() {
     last_updated: globalMetrics?.last_updated ?? new Date().toISOString(),
   };
 
-  const expectedHours = displayMetrics.expected_hours_month || 160;
-  const productivity = expectedHours > 0 ? Math.min((displayMetrics.total_hours_month / expectedHours) * 105, 100) : 0;
+  const totalHoursFiltered = useMemo(() => {
+    return filteredData.timeLogs.reduce((sum, log) => sum + log.hours, 0);
+  }, [filteredData.timeLogs]);
+
+  const expectedHoursFiltered = useMemo(() => {
+    if (sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes") {
+      return displayMetrics.expected_hours_month;
+    }
+    
+    let filteredProfiles = profiles.filter(p => p.active && p.role !== "cliente");
+    
+    if (sectorFilter !== "todos") {
+      filteredProfiles = filteredProfiles.filter(p => p.setor === sectorFilter);
+    }
+    
+    if (responsibleFilter !== "todos") {
+      filteredProfiles = filteredProfiles.filter(p => p.email === responsibleFilter || p.id === responsibleFilter);
+    }
+    
+    const calculatedCapacity = filteredProfiles.reduce((sum, p) => sum + ((p.carga_horaria || 40) / 5 * diasUteisNoPeriodo), 0);
+    return calculatedCapacity > 0 ? calculatedCapacity : displayMetrics.expected_hours_month;
+  }, [profiles, sectorFilter, responsibleFilter, periodFilter, diasUteisNoPeriodo, displayMetrics.expected_hours_month]);
+
+  const expectedHours = expectedHoursFiltered || 160;
+  const productivity = expectedHours > 0 ? Math.min((totalHoursFiltered / expectedHours) * 105, 100) : 0;
   const idleness = Math.max(100 - productivity, 0);
 
   // Filtragem dos widgets a serem exibidos com base na aba ativa
@@ -424,8 +447,10 @@ export default function DashboardPage() {
           </div>
 
           <div className="relative overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-5 backdrop-blur-md hover:border-zinc-750 transition duration-300 group">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Esforço Mensal</p>
-            <p className="mt-3 text-3xl font-extrabold text-white">{displayMetrics.total_hours_month.toFixed(1)}h</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+              {periodFilter === "mes" ? "Esforço Mensal" : "Esforço do Período"}
+            </p>
+            <p className="mt-3 text-3xl font-extrabold text-white">{totalHoursFiltered.toFixed(1)}h</p>
             {isEditingExpectedHours ? (
               <div className="mt-3 flex items-center gap-1.5 bg-zinc-900 border border-zinc-805 rounded-lg p-1 w-fit">
                 <span className="text-[10px] text-zinc-500 font-semibold px-1 select-none">Meta: &gt;=</span>
@@ -458,15 +483,20 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-3 flex items-center gap-1.5">
                 <p className="text-xs text-zinc-550">
-                  Meta esperada: {displayMetrics.expected_hours_month}h
+                  {sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes"
+                    ? `Meta esperada: ${displayMetrics.expected_hours_month}h`
+                    : `Capacidade estimada: ${expectedHoursFiltered.toFixed(0)}h`
+                  }
                 </p>
-                <button 
-                  onClick={() => setIsEditingExpectedHours(true)}
-                  className="p-0.5 rounded hover:bg-zinc-850 text-zinc-500 hover:text-white transition duration-200"
-                  title="Ajustar Meta Esperada"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
+                {sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes" && (
+                  <button 
+                    onClick={() => setIsEditingExpectedHours(true)}
+                    className="p-0.5 rounded hover:bg-zinc-850 text-zinc-500 hover:text-white transition duration-200"
+                    title="Ajustar Meta Esperada"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
               </div>
             )}
           </div>
