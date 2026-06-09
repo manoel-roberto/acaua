@@ -23,6 +23,10 @@ export interface Indicator {
     value: number;
     unit: string;
   };
+  objective?: string;
+  calculation?: string;
+  interpretation?: string;
+  troubleshooting?: string;
 }
 
 export const ALL_INDICATORS: Indicator[] = [
@@ -40,7 +44,11 @@ export const ALL_INDICATORS: Indicator[] = [
     },
     formula_logic: "Lógica: Média de progress (avanço físico) para todos os documentos da coleção /projects onde status está em ['em_andamento', 'planejamento', 'bloqueado'] AND archived == false.",
     visualization: { default_chart: "card", x_axis: null, y_axis: "progresso_medio" },
-    target_benchmark: { operator: ">=", value: 50, unit: "%" }
+    target_benchmark: { operator: ">=", value: 50, unit: "%" },
+    objective: "Mapear a saúde global e a velocidade de execução dos projetos da instituição. A meta esperada é manter o progresso médio de conclusão acima de 50% para a carteira de projetos ativos.",
+    calculation: "Calculado a partir da soma dos percentuais de avanço cadastrados em cada projeto ativo dividida pela quantidade total de projetos ativos.",
+    interpretation: "Valores elevados indicam projetos avançando no ritmo planejado. Valores baixos apontam para potenciais atrasos sistêmicos nas entregas ou projetos estagnados que necessitam de intervenção.",
+    troubleshooting: "Se o indicador apresentar 0% ou valores estranhos, certifique-se de que os gerentes estão atualizando o percentual de avanço físico ('progress') na tela de edição de cada projeto e que existem projetos ativos cadastrados."
   },
   {
     id: "pfm_carteira_por_setor",
@@ -70,7 +78,11 @@ export const ALL_INDICATORS: Indicator[] = [
     },
     formula_logic: "Lógica: Média de horas decorridas entre a data de criação (created_at) e a de conclusão (updated_at) para todas as atividades da coleção /activities onde status == 'concluida' AND priority está em ['critica', 'alta'].",
     visualization: { default_chart: "card", x_axis: null, y_axis: "horas_resolucao" },
-    target_benchmark: { operator: "<=", value: 48, unit: "horas" }
+    target_benchmark: { operator: "<=", value: 48, unit: "horas" },
+    objective: "Garantir o atendimento ágil às demandas prioritárias da universidade. A meta é solucionar tarefas urgentes/críticas em no máximo 48 horas úteis.",
+    calculation: "Obtém a diferença entre o momento de criação da atividade (created_at) e a marcação de sua conclusão (updated_at) para todas as atividades críticas concluídas no período de consulta.",
+    interpretation: "Valores menores que 48 horas significam alta capacidade de resposta a incidentes. Valores maiores sinalizam gargalos e sobrecarga da equipe em problemas emergenciais.",
+    troubleshooting: "Verifique se as atividades concluídas de alta prioridade tiveram suas datas de criação e conclusão corretamente registradas e se o fluxo de status não sofreu saltos manuais incorretos."
   },
   {
     id: "sla_resolucao_por_tipo_atividade",
@@ -152,7 +164,7 @@ export const ALL_INDICATORS: Indicator[] = [
   {
     id: "fte_efetivo_carteira_mensal",
     title: "FTE Efetivo Alocado na Carteira de Projetos (Mensal)",
-    description: "Converte o total de horas executadas em projetos no mês para equivalente de pessoal em tempo integral (1 FTE = 160 horas úteis/mês). Mede o tamanho real da força de trabalho consumida pela carteira.",
+    description: "Converte o total de horas executadas em projetos no mês para equivalente de pessoal in tempo integral (1 FTE = 160 horas úteis/mês). Mede o tamanho real da força de trabalho consumida pela carteira.",
     category: "esforco_e_capacidade",
     aggregation: { type: "sum", field: "time_logs.hours" },
     dimensions: {
@@ -162,7 +174,11 @@ export const ALL_INDICATORS: Indicator[] = [
     },
     formula_logic: "Lógica: Soma de todas as horas registradas (hours) dividida pela constante de 160 horas para todos os logs da coleção /time_logs onde project_id != null.",
     visualization: { default_chart: "card", x_axis: null, y_axis: "fte_efetivo" },
-    target_benchmark: { operator: ">=", value: 2.5, unit: "FTEs" }
+    target_benchmark: { operator: ">=", value: 2.5, unit: "FTEs" },
+    objective: "Quantificar o esforço humano real alocado no desenvolvimento de projetos estratégicos. Espera-se manter uma alocação contínua de no mínimo 2.5 FTEs (equivalente a 2.5 pessoas em tempo integral) na carteira.",
+    calculation: "Soma-se todas as horas lançadas na planilha de apontamento de horas (time_logs) associadas a algum projeto ativo no mês e divide-se o montante pelo referencial de 160 horas úteis mensais.",
+    interpretation: "Permite avaliar o dimensionamento correto da equipe. Valores baixos indicam que os projetos estão recebendo pouca atenção dos colaboradores (falta de foco ou dedicação parcial severa).",
+    troubleshooting: "Se o FTE estiver muito baixo ou zerado, certifique-se de que os colaboradores estão lançando seus logs de tempo e associando o projeto correto a esses lançamentos."
   },
   {
     id: "fte_efetivo_por_setor_mensal",
@@ -284,7 +300,11 @@ export const ALL_INDICATORS: Indicator[] = [
     },
     formula_logic: "Lógica: Razão percentual de ociosidade calculada em [1 - (Soma de hours lançadas / Soma de carga_horaria contratual esperada de todos os colaboradores ativos no período)] * 100 para todos os logs da coleção /time_logs e perfis da coleção /profiles.",
     visualization: { default_chart: "card", x_axis: null, y_axis: "ociosidade_percentual" },
-    target_benchmark: { operator: "<=", value: 15, unit: "%" }
+    target_benchmark: { operator: "<=", value: 15, unit: "%" },
+    objective: "Identificar o volume de capacidade de trabalho não aproveitada ou não reportada pela equipe. O objetivo é manter a ociosidade total da equipe abaixo de 15% no período.",
+    calculation: "Compara as horas úteis contratadas esperadas no período (baseada nos perfis ativos e nos dias úteis da folha) com a soma real de horas apontadas nos logs de tempo. A diferença não preenchida vira percentual de ociosidade.",
+    interpretation: "Valores acima de 15% representam colaboradores com tempo ocioso (capacidade livre) ou falha grave de preenchimento do diário de atividades (subnotificação de logs).",
+    troubleshooting: "Verifique se a carga horária no cadastro de cada perfil do colaborador está configurada corretamente e incentive a equipe a apontar as horas diárias."
   },
   {
     id: "tor_ociosidade_por_setor_mensal",
@@ -631,7 +651,11 @@ export const ALL_INDICATORS: Indicator[] = [
     },
     formula_logic: "Lógica: Razão percentual calculada em [Quantidade de atividades automáticas (routine_id != null) / Quantidade total de atividades criadas (automáticas + manuais) * 100] no período para todos os documentos da coleção /activities onde archived == false.",
     visualization: { default_chart: "pie_chart", x_axis: "origem", y_axis: "percentual" },
-    target_benchmark: { operator: ">=", value: 40, unit: "%" }
+    target_benchmark: { operator: ">=", value: 40, unit: "%" },
+    objective: "Medir o nível de padronização operacional da equipe. A meta é que pelo menos 40% de todas as tarefas atendidas correspondam a rotinas recorrentes pré-agendadas pelo sistema.",
+    calculation: "Divide a quantidade de atividades de rotinas recorrentes criadas automaticamente (atividades onde routine_id não é nulo) pelo volume total de atividades ativas na fila.",
+    interpretation: "Valores elevados mostram um fluxo de trabalho previsível e padronizado. Valores excessivamente baixos revelam uma operação reativa e caótica, focada apenas em apagar incêndios com tarefas manuais.",
+    troubleshooting: "Verifique se as rotinas automáticas estão ativas no painel de Rotinas e se o script automático de geração de tarefas recorrentes ('spawn') está sendo disparado."
   },
   {
     id: "contagem_atividades_bloqueadas_atual",
@@ -786,3 +810,35 @@ export const ALL_INDICATORS: Indicator[] = [
     target_benchmark: { operator: ">=", value: 80, unit: "%" }
   }
 ];
+
+export function getIndicatorDocumentation(indicator: Indicator) {
+  const objective = indicator.objective || 
+    `Acompanhar e avaliar a métrica "${indicator.title}" para garantir a qualidade, previsibilidade e o controle estratégico das rotinas da equipe.`;
+    
+  const calculation = indicator.calculation || 
+    `Fórmula automática: Agregação do tipo '${indicator.aggregation.type}' sobre o campo '${indicator.aggregation.field}' da coleção '${indicator.dimensions.filter_collection}', aplicando os filtros internos de sistema correspondentes.`;
+
+  const operatorMap: Record<string, string> = {
+    "==": "exatamente igual a",
+    ">=": "no mínimo",
+    "<=": "no máximo",
+    ">": "maior que",
+    "<": "menor que",
+  };
+  const friendlyOperator = operatorMap[indicator.target_benchmark.operator] || indicator.target_benchmark.operator;
+  const interpretation = indicator.interpretation || 
+    `A meta ideal para este indicador é manter-se ${friendlyOperator} ${indicator.target_benchmark.value} ${indicator.target_benchmark.unit}. Desvios acentuados desse benchmark devem ser analisados para evitar atrasos ou sobrecargas.`;
+
+  const collectionMap: Record<string, string> = {
+    projects: "Projetos",
+    activities: "Atividades (Kanban)",
+    time_logs: "Lançamentos de Horas (Time Logs)",
+    profiles: "Perfis e Cargas Horárias de Colaboradores",
+    audit_logs: "Logs de Auditoria de Ações",
+  };
+  const troubleshooting = indicator.troubleshooting || 
+    `Caso este indicador apresente 0 ou dados estranhos, valide se os colaboradores estão cadastrando dados corretamente no módulo de ${collectionMap[indicator.dimensions.filter_collection] || "sistema"} e se os filtros de período estão cobrindo registros ativos.`;
+
+  return { objective, calculation, interpretation, troubleshooting };
+}
+

@@ -14,7 +14,8 @@ import {
   User as UserIcon,
   Users,
   Shield,
-  Sliders
+  Sliders,
+  HelpCircle
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // O Dashboard é exibido para admin e analista
     if (profile?.role !== "cliente") {
       items.push({ name: "Dashboard", href: "/", icon: LayoutDashboard });
+      items.push({ name: "Ajuda", href: "/help", icon: HelpCircle });
     }
 
     if (hasPermission("projects", "read")) {

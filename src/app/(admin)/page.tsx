@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { db, auth } from "@/lib/firebase/client";
-import { doc, onSnapshot, collection, getDocs, writeBatch, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, collection, getDocs, writeBatch, setDoc, query, where } from "firebase/firestore";
 import { useAuthContext } from "@/context/AuthContext";
 import { GlobalMetrics, Project, Activity, TimeLog, UserProfile } from "@/types";
-import { ALL_INDICATORS, Indicator } from "@/constants/indicators";
+import { ALL_INDICATORS, Indicator, getIndicatorDocumentation } from "@/constants/indicators";
 import { calculateIndicators } from "@/utils/bi";
 import { 
   LayoutDashboard, 
@@ -25,7 +26,10 @@ import {
   ChevronRight,
   HelpCircle,
   FileText,
-  Pencil
+  Pencil,
+  Target,
+  Calculator,
+  AlertTriangle
 } from "lucide-react";
 
 // Função para calcular dias úteis (Segunda a Sexta) entre duas datas
@@ -52,8 +56,11 @@ const DEFAULT_WIDGETS: Record<string, string[]> = {
 
 export default function DashboardPage() {
   const { user } = useAuthContext();
+  const router = useRouter();
+  const [selectedHelpIndicator, setSelectedHelpIndicator] = useState<Indicator | null>(null);
   const [globalMetrics, setGlobalMetrics] = useState<GlobalMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [staticLoading, setStaticLoading] = useState(true);
+  const [dynamicLoading, setDynamicLoading] = useState(false);
 
   // Estados de dados operacionais brutos
   const [projects, setProjects] = useState<Project[]>([]);
@@ -68,7 +75,9 @@ export default function DashboardPage() {
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false);
 
   // Filtros Globais
-  const [periodFilter, setPeriodFilter] = useState<"mes" | "30_dias" | "90_dias">("mes");
+  const [periodFilter, setPeriodFilter] = useState<"mes" | "mes_anterior" | "7_dias" | "30_dias" | "90_dias" | "ano" | "personalizado">("mes");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
   const [sectorFilter, setSectorFilter] = useState<string>("todos");
   const [responsibleFilter, setResponsibleFilter] = useState<string>("todos");
 
@@ -114,6 +123,16 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+  // Inicializar datas personalizadas quando selecionadas
+  useEffect(() => {
+    if (periodFilter === "personalizado" && (!customStartDate || !customEndDate)) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      setCustomStartDate(firstDay.toISOString().split("T")[0]);
+      setCustomEndDate(now.toISOString().split("T")[0]);
+    }
+  }, [periodFilter, customStartDate, customEndDate]);
+
   // Salvar configuração de widgets no localStorage
   const saveWidgetConfig = (newConfig: Record<string, string[]>) => {
     if (!user) return;
@@ -129,7 +148,7 @@ export default function DashboardPage() {
     localStorage.setItem(`acaua_custom_benchmarks_${user.uid}`, JSON.stringify(newBenchmarks));
   };
 
-  // Carregar dados estruturados do Firestore
+  // Carregar dados estruturados estáticos/iniciais do Firestore (uma vez por sessão/login)
   useEffect(() => {
     if (!user || !auth.currentUser) return;
 
@@ -138,31 +157,21 @@ export default function DashboardPage() {
       if (snap.exists()) setGlobalMetrics(snap.data() as GlobalMetrics);
     });
 
-    // 2. Buscar coleções de apoio para processamento local
-    const loadOperationalData = async () => {
+    // 2. Buscar perfis e projetos
+    const loadStaticData = async () => {
       try {
-        const [projSnap, actSnap, tlSnap, profSnap, auditSnap] = await Promise.all([
+        const [projSnap, profSnap] = await Promise.all([
           getDocs(collection(db, "projects")),
-          getDocs(collection(db, "activities")),
-          getDocs(collection(db, "time_logs")),
-          getDocs(collection(db, "profiles")),
-          getDocs(collection(db, "audit_logs"))
+          getDocs(collection(db, "profiles"))
         ]);
 
         const loadedProjects = projSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Project));
-        const loadedActivities = actSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Activity));
-        const loadedTimeLogs = tlSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as TimeLog));
         const loadedProfiles = profSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as UserProfile));
-        const loadedAuditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         setProjects(loadedProjects);
-        setActivities(loadedActivities);
-        setTimeLogs(loadedTimeLogs);
         setProfiles(loadedProfiles);
-        setAuditLogs(loadedAuditLogs);
 
         // Seção silenciosa: Semeador opcional de indicadores para manter compatibilidade
-        // Se o usuário for admin e a coleção /indicators estiver vazia, semeamos a lista ALL_INDICATORS
         const currentProfile = loadedProfiles.find(p => p.email === user.email);
         if (currentProfile?.role === "admin") {
           const indicatorsSnap = await getDocs(collection(db, "indicators"));
@@ -176,15 +185,108 @@ export default function DashboardPage() {
           }
         }
       } catch (error) {
-        console.error("Erro ao carregar dados operacionais do Dashboard:", error);
+        console.error("Erro ao carregar dados estáticos do Dashboard:", error);
       } finally {
-        setLoading(false);
+        setStaticLoading(false);
       }
     };
 
-    loadOperationalData();
+    loadStaticData();
     return () => unsubscribeMetrics();
   }, [user]);
+
+  // Intervalo de tempo selecionado e se está limitado
+  const { dateRange, isRangeLimited } = useMemo(() => {
+    const now = new Date();
+    let end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    let start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0); // Mês corrente por padrão
+    let isRangeLimited = false;
+
+    if (periodFilter === "mes_anterior") {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59); // Último dia do mês anterior
+    } else if (periodFilter === "7_dias") {
+      start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      start.setHours(0, 0, 0, 0);
+    } else if (periodFilter === "30_dias") {
+      start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      start.setHours(0, 0, 0, 0);
+    } else if (periodFilter === "90_dias") {
+      start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      start.setHours(0, 0, 0, 0);
+    } else if (periodFilter === "ano") {
+      start = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
+    } else if (periodFilter === "personalizado" && customStartDate && customEndDate) {
+      const s = new Date(customStartDate + "T00:00:00");
+      let e = new Date(customEndDate + "T23:59:59");
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+        const diffTime = e.getTime() - s.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (diffDays > 30) {
+          isRangeLimited = true;
+          e = new Date(s.getTime() + 30 * 24 * 60 * 60 * 1000 - 1000); // Exatos 30 dias menos 1 segundo
+          e.setHours(23, 59, 59, 999);
+        }
+        start = s;
+        end = e;
+      }
+    }
+
+    return { dateRange: { start, end }, isRangeLimited };
+  }, [periodFilter, customStartDate, customEndDate]);
+
+  const startISO = dateRange.start.toISOString();
+  const endISO = dateRange.end.toISOString();
+
+  // Carregar dados operacionais dinâmicos (activities, time_logs, audit_logs) baseados no filtro de data
+  useEffect(() => {
+    if (!user || !auth.currentUser || staticLoading) return;
+
+    const loadDynamicData = async () => {
+      setDynamicLoading(true);
+      try {
+        const startDateOnly = startISO.split("T")[0];
+        const endDateOnly = endISO.split("T")[0];
+
+        // Construir queries otimizadas por data
+        const tlQuery = query(
+          collection(db, "time_logs"),
+          where("log_date", ">=", startDateOnly),
+          where("log_date", "<=", endDateOnly)
+        );
+        const actQuery = query(
+          collection(db, "activities"),
+          where("activity_date", ">=", startDateOnly),
+          where("activity_date", "<=", endDateOnly)
+        );
+        const auditQuery = query(
+          collection(db, "audit_logs"),
+          where("created_at", ">=", startISO),
+          where("created_at", "<=", endISO)
+        );
+
+        const [tlSnap, actSnap, auditSnap] = await Promise.all([
+          getDocs(tlQuery),
+          getDocs(actQuery),
+          getDocs(auditQuery)
+        ]);
+
+        const loadedTimeLogs = tlSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as TimeLog));
+        const loadedActivities = actSnap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Activity));
+        const loadedAuditLogs = auditSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        setTimeLogs(loadedTimeLogs);
+        setActivities(loadedActivities);
+        setAuditLogs(loadedAuditLogs);
+      } catch (error) {
+        console.error("Erro ao carregar dados dinâmicos do Dashboard:", error);
+      } finally {
+        setDynamicLoading(false);
+      }
+    };
+
+    loadDynamicData();
+  }, [user, staticLoading, startISO, endISO]);
 
   // --- FILTRAGEM E CÁLCULO DOS DADOS EM MEMÓRIA ---
   
@@ -200,20 +302,7 @@ export default function DashboardPage() {
     return profiles.filter(p => p.active && p.role !== "cliente");
   }, [profiles]);
 
-  // Intervalo de tempo selecionado
-  const dateRange = useMemo(() => {
-    const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    let start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0); // Mês corrente por padrão
 
-    if (periodFilter === "30_dias") {
-      start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    } else if (periodFilter === "90_dias") {
-      start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-    }
-
-    return { start, end };
-  }, [periodFilter]);
 
   // Calcular dias úteis do período atual
   const diasUteisNoPeriodo = useMemo(() => {
@@ -291,7 +380,7 @@ export default function DashboardPage() {
   const productivity = expectedHours > 0 ? Math.min((totalHoursFiltered / expectedHours) * 105, 100) : 0;
   const idleness = Math.max(100 - productivity, 0);
 
-  if (loading) {
+  if (staticLoading) {
     return (
       <div className="flex h-[50vh] flex-col items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-850 border-t-emerald-500"></div>
@@ -333,10 +422,43 @@ export default function DashboardPage() {
               className="bg-transparent text-white font-semibold outline-none border-none cursor-pointer focus:ring-0"
             >
               <option value="mes" className="bg-zinc-900 text-white">Mês Corrente</option>
+              <option value="mes_anterior" className="bg-zinc-900 text-white">Mês Anterior</option>
+              <option value="7_dias" className="bg-zinc-900 text-white">Últimos 7 Dias</option>
               <option value="30_dias" className="bg-zinc-900 text-white">Últimos 30 Dias</option>
-              <option value="90_dias" className="bg-zinc-900 text-white">Últimos 90 dias</option>
+              <option value="90_dias" className="bg-zinc-900 text-white">Últimos 90 Dias</option>
+              <option value="ano" className="bg-zinc-900 text-white">Este Ano</option>
+              <option value="personalizado" className="bg-zinc-900 text-white">Personalizado...</option>
             </select>
+            {dynamicLoading && (
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border border-zinc-700 border-t-emerald-500 ml-1"></div>
+            )}
           </div>
+
+          {periodFilter === "personalizado" && (
+            <>
+              <div className="h-4 w-px bg-zinc-800"></div>
+              <div className="flex items-center gap-2 px-2 text-xs">
+                <input 
+                  type="date" 
+                  value={customStartDate} 
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="bg-zinc-900 text-white border border-zinc-800 rounded px-2.5 py-1 focus:outline-none focus:border-emerald-500 text-[11px] font-semibold"
+                />
+                <span className="text-zinc-500 font-bold text-[9px] uppercase">até</span>
+                <input 
+                  type="date" 
+                  value={customEndDate} 
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-zinc-900 text-white border border-zinc-800 rounded px-2.5 py-1 focus:outline-none focus:border-emerald-500 text-[11px] font-semibold"
+                />
+                {isRangeLimited && (
+                  <span className="text-amber-500 text-[10px] font-medium bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg animate-pulse whitespace-nowrap">
+                    Intervalo limitado a 30 dias
+                  </span>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="h-4 w-px bg-zinc-800"></div>
 
@@ -435,7 +557,7 @@ export default function DashboardPage() {
 
       {/* METRICAS DE VISÃO GERAL (RESUMO RÁPIDO DO BANCO) */}
       {activeTab === "visao_geral" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-4 transition-opacity duration-300 ${dynamicLoading ? "opacity-60" : "opacity-100"}`}>
           <div className="relative overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-5 backdrop-blur-md hover:border-zinc-750 transition duration-300 group">
             <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Projetos Ativos</p>
             <p className="mt-3 text-3xl font-extrabold text-white">{displayMetrics.projects_active}</p>
@@ -516,7 +638,7 @@ export default function DashboardPage() {
       )}
 
       {/* GRID DE WIDGETS DINÂMICOS CUSTOMIZÁVEIS */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className={`grid gap-6 md:grid-cols-2 transition-opacity duration-300 ${dynamicLoading ? "opacity-60" : "opacity-100"}`}>
         {widgetsToShow.map(widget => {
           const kpiData = calculatedKPIs[widget.id] || { value: 0, benchmark: true };
           
@@ -534,16 +656,21 @@ export default function DashboardPage() {
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-550 bg-zinc-900 border border-zinc-850 px-2 py-0.5 rounded">
                       {widget.category.replace(/_/g, " ")}
                     </span>
-                    <h3 className="mt-2 text-base font-bold text-white tracking-tight flex items-center gap-1.5 group cursor-help">
+                    <h3 className="mt-2 text-base font-bold text-white tracking-tight flex items-center gap-1.5">
                       {widget.title}
-                      <div className="relative flex flex-col items-center">
-                        <HelpCircle className="h-4 w-4 text-zinc-650 hover:text-zinc-400 transition" />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center">
-                          <span className="relative z-10 p-2 text-xs leading-relaxed text-zinc-300 bg-zinc-900 rounded-lg border border-zinc-800 shadow-xl w-64 text-center">
+                      <button
+                        onClick={() => setSelectedHelpIndicator(widget)}
+                        title="Ver ajuda detalhada deste indicador"
+                        className="relative flex flex-col items-center group cursor-pointer focus:outline-none"
+                      >
+                        <HelpCircle className="h-4 w-4 text-zinc-600 hover:text-emerald-400 hover:scale-110 transition-all duration-200" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center pointer-events-none">
+                          <span className="relative z-10 p-2 text-[10px] leading-relaxed text-zinc-300 bg-zinc-900 rounded-lg border border-zinc-800 shadow-xl w-48 text-center">
                             {widget.description}
+                            <span className="block mt-1 text-emerald-400 font-bold font-mono">Clique para ver ajuda completa</span>
                           </span>
                         </div>
-                      </div>
+                      </button>
                     </h3>
                   </div>
 
@@ -916,6 +1043,108 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE AJUDA DOS INDICADORES */}
+      {selectedHelpIndicator && (() => {
+        const docData = getIndicatorDocumentation(selectedHelpIndicator);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-fade-in">
+            <div className="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-6 max-h-[85vh] overflow-y-auto">
+              {/* Botão de Fechar */}
+              <button 
+                onClick={() => setSelectedHelpIndicator(null)}
+                className="absolute right-4 top-4 text-zinc-400 hover:text-white hover:bg-zinc-800 p-1.5 rounded-lg transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              {/* Cabeçalho */}
+              <div className="space-y-2">
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wide border uppercase bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                  {selectedHelpIndicator.category.replace(/_/g, " ")}
+                </span>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  {selectedHelpIndicator.title}
+                </h2>
+                <p className="text-zinc-400 text-xs leading-relaxed">
+                  {selectedHelpIndicator.description}
+                </p>
+              </div>
+
+              {/* Grid explicativo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {/* Objetivo */}
+                <div className="bg-zinc-950/40 border border-zinc-850 rounded-xl p-4.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-300 font-semibold text-xs">
+                    <Target className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <h4>Objetivo Principal</h4>
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    {docData.objective}
+                  </p>
+                </div>
+
+                {/* Cálculo */}
+                <div className="bg-zinc-950/40 border border-zinc-850 rounded-xl p-4.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-300 font-semibold text-xs">
+                    <Calculator className="h-4 w-4 text-indigo-400 shrink-0" />
+                    <h4>Como Funciona o Cálculo</h4>
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    {docData.calculation}
+                  </p>
+                </div>
+
+                {/* Interpretação */}
+                <div className="bg-zinc-950/40 border border-zinc-850 rounded-xl p-4.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-300 font-semibold text-xs">
+                    <TrendingUp className="h-4 w-4 text-amber-400 shrink-0" />
+                    <h4>Interpretação e Gestão</h4>
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    {docData.interpretation}
+                  </p>
+                </div>
+
+                {/* Diagnóstico */}
+                <div className="bg-zinc-950/40 border border-zinc-850 rounded-xl p-4.5 space-y-1">
+                  <div className="flex items-center gap-1.5 text-zinc-300 font-semibold text-xs">
+                    <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
+                    <h4>Diagnóstico de Problemas</h4>
+                  </div>
+                  <p className="text-zinc-400 text-[11px] leading-relaxed">
+                    {docData.troubleshooting}
+                  </p>
+                </div>
+              </div>
+
+              {/* Rodapé / Ações */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-t border-zinc-850 pt-5 gap-3 mt-4">
+                <div className="text-[10px] text-zinc-500">
+                  Meta esperada: <span className="font-mono font-bold text-zinc-300">{selectedHelpIndicator.target_benchmark.operator} {selectedHelpIndicator.target_benchmark.value} {selectedHelpIndicator.target_benchmark.unit}</span>
+                </div>
+                <div className="flex items-center gap-2.5 justify-end">
+                  <button
+                    onClick={() => setSelectedHelpIndicator(null)}
+                    className="px-4 py-2 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg text-xs font-semibold cursor-pointer transition"
+                  >
+                    Fechar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedHelpIndicator(null);
+                      router.push(`/help?id=${selectedHelpIndicator.id}`);
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold px-4 py-2 rounded-lg text-xs tracking-wide cursor-pointer transition duration-300"
+                  >
+                    Ver no Glossário Completo
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
