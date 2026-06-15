@@ -33,14 +33,15 @@ const MODULES_INFO = [
 
 const ROLES_INFO = [
   { key: "admin" as const, name: "Administrador", description: "Acesso total irrestrito a todos os módulos" },
-  { key: "analista" as const, name: "Analista", description: "Criação e edição de dados operacionais" },
-  { key: "cliente" as const, name: "Cliente", description: "Apenas visualização e acompanhamento de projetos" }
+  { key: "gestor" as const, name: "Gestor", description: "Gerencia projetos e equipes do NGD" },
+  { key: "colaborador" as const, name: "Colaborador", description: "Criação e edição de dados operacionais próprios" },
+  { key: "visualizador" as const, name: "Visualizador", description: "Apenas visualização e acompanhamento" }
 ];
 
 export default function PermissionsPage() {
   const { profile } = useAuthContext();
-  const [selectedRole, setSelectedRole] = useState<"admin" | "analista" | "cliente">("analista");
-  const [permissionsState, setPermissionsState] = useState<Record<"admin" | "analista" | "cliente", RolePermissions>>(DEFAULT_PERMISSIONS);
+  const [selectedRole, setSelectedRole] = useState<"admin" | "gestor" | "colaborador" | "visualizador">("colaborador");
+  const [permissionsState, setPermissionsState] = useState<Record<"admin" | "gestor" | "colaborador" | "visualizador", RolePermissions>>(DEFAULT_PERMISSIONS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -51,7 +52,7 @@ export default function PermissionsPage() {
       if (!profile || !auth.currentUser) return;
       setLoading(true);
       try {
-        const loaded: Record<"admin" | "analista" | "cliente", RolePermissions> = { ...DEFAULT_PERMISSIONS };
+        const loaded: Record<"admin" | "gestor" | "colaborador" | "visualizador", RolePermissions> = { ...DEFAULT_PERMISSIONS };
         
         for (const roleInfo of ROLES_INFO) {
           const docRef = doc(db, "permissions", roleInfo.key);
@@ -198,7 +199,7 @@ export default function PermissionsPage() {
       )}
 
       {/* Role Selection Tabs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {ROLES_INFO.map((roleInfo) => {
           const isActive = selectedRole === roleInfo.key;
           return (

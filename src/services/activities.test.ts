@@ -7,7 +7,6 @@ import {
   duplicateActivity, 
   updateActivity, 
   updateActivityStatus, 
-  deleteActivity, 
   deleteActivitiesBatch, 
   importActivitiesBatch 
 } from "./activities";
@@ -90,12 +89,167 @@ describe("Serviço de Atividades (activities)", () => {
         userEmail: "colab@uefs.br"
       });
 
-      const act = getMockCollectionData("activities")[0] as any;
+      const act = getMockCollectionData("activities")[0] as Activity;
       expect(act.status).toBe("concluida");
       // Diferença entre 10h00 e 11h30 é 1.5 horas
       expect(act.hours_executed).toBe(1.5);
       expect(act.start_time_executed).toBe("10:00");
       expect(act.end_time_executed).toBe("11:30");
+    });
+  });
+
+  describe("Sincronização de horas executadas com métricas e logs de tempo", () => {
+    it("deve criar logs de tempo e atualizar métricas ao criar atividade com horários executados", async () => {
+      setMockDoc("projects", "p1", { id: "p1", name: "Projeto 1", executed_hours: 10 });
+      setMockDoc("metrics", "global", { total_hours_month: 20 });
+
+      const act = await createActivity({
+        title: "Atividade Executada",
+        description: "Teste",
+        responsible_id: "u1",
+        responsible_name: "Colaborador 1",
+        project_id: "p1",
+        project_name: "Projeto 1",
+        type: "projeto",
+        status: "pendente",
+        priority: "media",
+        activity_date: "2026-06-03",
+        start_time_executed: "08:00",
+        end_time_executed: "09:30",
+        hours_planned: 1.5,
+        observations: "",
+        tags: [],
+        created_by: "u1"
+      });
+
+      // Deve ter calculado e salvo 1.5 horas executadas
+      expect(act.hours_executed).toBe(1.5);
+
+      // Deve ter criado um registro correspondente em time_logs
+      const logs = getMockCollectionData("time_logs");
+      expect(logs.length).toBe(1);
+      expect(logs[0].hours).toBe(1.5);
+      expect(logs[0].project_id).toBe("p1");
+      expect(logs[0].activity_id).toBe(act.id);
+
+      // Deve ter incrementado as horas do projeto
+      const proj = getMockCollectionData("projects")[0] as Record<string, unknown>;
+      expect(proj.executed_hours).toBe(11.5);
+
+      // Deve ter incrementado as métricas globais
+      const global = getMockCollectionData("metrics")[0] as Record<string, unknown>;
+      expect(global.total_hours_month).toBe(21.5);
+    });
+
+    it("deve registrar a diferença de horas ao editar horas executadas diretamente", async () => {
+      setMockDoc("projects", "p1", { id: "p1", name: "Projeto 1", executed_hours: 10 });
+      setMockDoc("metrics", "global", { total_hours_month: 20 });
+      setMockDoc("activities", "act_edit", {
+        id: "act_edit",
+        title: "Atividade Edição",
+        responsible_id: "u1",
+        responsible_name: "Colaborador 1",
+        project_id: "p1",
+        project_name: "Projeto 1",
+        hours_executed: 1.5,
+        activity_date: "2026-06-03"
+      });
+
+      // Edita aumentando as horas executadas para 2.5
+      await updateActivity("act_edit", {
+        hours_executed: 2.5
+      });
+
+      const act = getMockCollectionData("activities").find((a: Record<string, unknown>) => a.id === "act_edit") as Activity;
+      expect(act.hours_executed).toBe(2.5);
+
+      // Deve ter gerado um time_log com o delta (+1.0)
+      const logs = getMockCollectionData("time_logs");
+      expect(logs.length).toBe(1);
+      expect(logs[0].hours).toBe(1.0);
+      expect(logs[0].activity_id).toBe("act_edit");
+
+      // Horas do projeto devem ir para 11.0 (10 + 1.0)
+      const proj = getMockCollectionData("projects")[0] as Record<string, unknown>;
+      expect(proj.executed_hours).toBe(11.0);
+
+      // Métricas globais devem ir para 21.0 (20 + 1.0)
+      const global = getMockCollectionData("metrics")[0] as Record<string, unknown>;
+      expect(global.total_hours_month).toBe(21.0);
+    });
+
+    it("deve registrar delta negativo ao diminuir horas executadas diretamente", async () => {
+      setMockDoc("projects", "p1", { id: "p1", name: "Projeto 1", executed_hours: 10 });
+      setMockDoc("metrics", "global", { total_hours_month: 20 });
+      setMockDoc("activities", "act_edit", {
+        id: "act_edit",
+        title: "Atividade Edição",
+        responsible_id: "u1",
+        responsible_name: "Colaborador 1",
+        project_id: "p1",
+        project_name: "Projeto 1",
+        hours_executed: 3.0,
+        activity_date: "2026-06-03"
+      });
+
+      // Edita diminuindo as horas executadas para 1.0
+      await updateActivity("act_edit", {
+        hours_executed: 1.0
+      });
+
+      // Deve ter gerado um time_log com o delta (-2.0)
+      const logs = getMockCollectionData("time_logs");
+      expect(logs.length).toBe(1);
+      expect(logs[0].hours).toBe(-2.0);
+
+      // Horas do projeto devem ir para 8.0 (10 - 2.0)
+      const proj = getMockCollectionData("projects")[0] as Record<string, unknown>;
+      expect(proj.executed_hours).toBe(8.0);
+
+      // Métricas globais devem ir para 18.0 (20 - 2.0)
+      const global = getMockCollectionData("metrics")[0] as Record<string, unknown>;
+      expect(global.total_hours_month).toBe(18.0);
+    });
+
+    it("deve propagar horas corretamente no auto-preenchimento ao concluir status", async () => {
+      setMockDoc("projects", "p1", { id: "p1", name: "Projeto 1", executed_hours: 10 });
+      setMockDoc("metrics", "global", { total_hours_month: 20 });
+      setMockDoc("activities", "act_status", {
+        id: "act_status",
+        title: "Atividade Conclusão",
+        status: "pendente",
+        responsible_id: "u1",
+        responsible_name: "Colaborador 1",
+        project_id: "p1",
+        project_name: "Projeto 1",
+        start_time_planned: "14:00",
+        end_time_planned: "15:30",
+        hours_executed: 0,
+        activity_date: "2026-06-03"
+      });
+
+      await updateActivityStatus({
+        activityId: "act_status",
+        oldStatus: "pendente",
+        newStatus: "concluida",
+        userId: "u1",
+        userEmail: "user@uefs.br"
+      });
+
+      const act = getMockCollectionData("activities").find((a: Record<string, unknown>) => a.id === "act_status") as Activity;
+      expect(act.hours_executed).toBe(1.5);
+
+      // Deve ter gerado um time_log com +1.5
+      const logs = getMockCollectionData("time_logs");
+      expect(logs.length).toBe(1);
+      expect(logs[0].hours).toBe(1.5);
+
+      // Horas do projeto e globais devem ser incrementadas em 1.5
+      const proj = getMockCollectionData("projects")[0] as Record<string, unknown>;
+      expect(proj.executed_hours).toBe(11.5);
+
+      const global = getMockCollectionData("metrics")[0] as Record<string, unknown>;
+      expect(global.total_hours_month).toBe(21.5);
     });
   });
 
@@ -143,7 +297,7 @@ describe("Serviço de Atividades (activities)", () => {
       expect(nextAct!.activity_date).toBe("2026-06-08"); // Data da próxima execução da rotina
 
       // 4. Verifica se atualizou os campos last_run e next_run na rotina
-      const rot = getMockCollectionData("recurring_routines")[0] as any;
+      const rot = getMockCollectionData("recurring_routines")[0] as Record<string, unknown>;
       expect(rot.last_run).toBe("2026-06-08");
       // Próxima execução calculada: somar 1 semana ao "2026-06-08" -> "2026-06-15"
       expect(rot.next_run).toBe("2026-06-15");

@@ -4,7 +4,7 @@ import React from "react";
 import { useAuthContext } from "@/context/AuthContext";
 
 interface RoleGuardProps {
-  allowedRoles: Array<"admin" | "analista" | "cliente">;
+  allowedRoles: Array<"admin" | "gestor" | "colaborador" | "visualizador">;
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }

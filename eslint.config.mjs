@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "firebase-data/**",
+    "firebase-export-*/**",
+    ".firebase/**",
+    ".firebase_cache/**",
   ]),
 ]);
 

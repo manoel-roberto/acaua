@@ -15,7 +15,8 @@ import {
   Users,
   Shield,
   Sliders,
-  HelpCircle
+  HelpCircle,
+  Settings
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -30,7 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const items = [];
     
     // O Dashboard é exibido para admin e analista
-    if (profile?.role !== "cliente") {
+    if (profile?.role !== "visualizador") {
       items.push({ name: "Dashboard", href: "/", icon: LayoutDashboard });
       items.push({ name: "Ajuda", href: "/help", icon: HelpCircle });
     }
@@ -59,6 +60,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       items.push({ name: "Cadastros", href: "/registrations", icon: Sliders });
     }
 
+    if (profile?.role === "admin") {
+      items.push({ name: "Parâmetros", href: "/parameters", icon: Settings });
+    }
+
     return items;
   };
 
@@ -68,9 +73,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     switch (role) {
       case "admin":
         return "bg-red-500/10 text-red-400 border-red-500/20";
-      case "analista":
+      case "colaborador":
         return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-      case "cliente":
+      case "visualizador":
         return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
       default:
         return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
@@ -127,8 +132,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="flex-1 min-w-0 opacity-0 group-hover:opacity-100 transition-opacity duration-350">
               <p className="text-xs font-semibold text-white truncate">{profile?.full_name}</p>
               <p className="text-[10px] text-zinc-500 truncate">{profile?.email}</p>
-              <span className={`inline-block mt-1 text-[9px] font-mono px-1.5 py-0.2 rounded border ${getRoleBadgeColor(profile?.role || "analista")}`}>
-                {(profile?.role || "analista").toUpperCase()}
+              <span className={`inline-block mt-1 text-[9px] font-mono px-1.5 py-0.2 rounded border ${getRoleBadgeColor(profile?.role || "colaborador")}`}>
+                {(profile?.role || "colaborador").toUpperCase()}
               </span>
             </div>
           </div>
@@ -203,8 +208,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-white truncate">{profile?.full_name}</p>
-                    <span className={`inline-block mt-0.5 text-[8px] font-mono px-1 rounded border ${getRoleBadgeColor(profile?.role || "analista")}`}>
-                      {(profile?.role || "analista").toUpperCase()}
+                    <span className={`inline-block mt-0.5 text-[8px] font-mono px-1 rounded border ${getRoleBadgeColor(profile?.role || "colaborador")}`}>
+                      {(profile?.role || "colaborador").toUpperCase()}
                     </span>
                   </div>
                 </div>

@@ -186,11 +186,12 @@ export async function initializeDefaultActivityTypes(): Promise<void> {
 
   const batch = writeBatch(db);
   defaultTypes.forEach((name) => {
-    const docRef = doc(typesRef);
+    const key = normalizeKey(name);
+    const docRef = doc(typesRef, key);
     batch.set(docRef, {
-      id: docRef.id,
+      id: key,
       name,
-      key: normalizeKey(name),
+      key,
       created_at: new Date().toISOString()
     });
   });
@@ -281,11 +282,12 @@ export async function initializeDefaultCategories(): Promise<void> {
 
   const batch = writeBatch(db);
   defaultCategories.forEach((name) => {
-    const docRef = doc(categoriesRef);
+    const key = normalizeKey(name);
+    const docRef = doc(categoriesRef, key);
     batch.set(docRef, {
-      id: docRef.id,
+      id: key,
       name,
-      key: normalizeKey(name),
+      key,
       created_at: new Date().toISOString()
     });
   });
@@ -320,7 +322,7 @@ export async function cleanDuplicateRegistrations(): Promise<{ sectorsRemoved: n
   const categories = await getCategories();
   const seenCategories = new Set<string>();
   categories.forEach((c) => {
-    const key = (c as any).key || normalizeKey(c.name);
+    const key = c.key || normalizeKey(c.name);
     if (seenCategories.has(key)) {
       const docRef = doc(db, "categories", c.id);
       batch.delete(docRef);
@@ -334,7 +336,7 @@ export async function cleanDuplicateRegistrations(): Promise<{ sectorsRemoved: n
   const types = await getActivityTypes();
   const seenTypes = new Set<string>();
   types.forEach((t) => {
-    const key = (t as any).key || normalizeKey(t.name);
+    const key = t.key || normalizeKey(t.name);
     if (seenTypes.has(key)) {
       const docRef = doc(db, "activity_types", t.id);
       batch.delete(docRef);

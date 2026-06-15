@@ -96,3 +96,44 @@ export async function logHours(
 
   await batch.commit();
 }
+
+// Atomic time log deletion using writeBatch to update all related collections and decrement counters
+export async function deleteTimeLog(log: TimeLog): Promise<void> {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+
+  // 1. Delete the Time Log document
+  const logRef = doc(db, "time_logs", log.id);
+  batch.delete(logRef);
+
+  // 2. Decrement executed hours in Activity (increment by negative log.hours)
+  if (log.activity_id) {
+    const activityRef = doc(db, "activities", log.activity_id);
+    batch.update(activityRef, {
+      hours_executed: increment(-log.hours),
+      updated_at: now,
+    });
+  }
+
+  // 3. Decrement executed hours in Project (increment by negative log.hours)
+  if (log.project_id) {
+    const projectRef = doc(db, "projects", log.project_id);
+    batch.update(projectRef, {
+      executed_hours: increment(-log.hours),
+      updated_at: now,
+    });
+  }
+
+  // 4. Decrement global metrics (increment by negative log.hours)
+  const globalMetricsRef = doc(db, "metrics", "global");
+  batch.set(
+    globalMetricsRef,
+    {
+      total_hours_month: increment(-log.hours),
+      last_updated: now,
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
+}

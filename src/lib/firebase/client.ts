@@ -31,15 +31,18 @@ export const isEmulatorActive =
   !window.location.hostname.includes("firebaseapp.com") &&
   (window.location.hostname === "localhost" || 
    window.location.hostname === "127.0.0.1" || 
-   window.location.hostname.startsWith("192.168."));
+   window.location.hostname.startsWith("192.168.") ||
+   window.location.hostname.startsWith("172.") ||
+   window.location.hostname.startsWith("10."));
 
 if (isEmulatorActive) {
   const _global = globalThis as any;
   if (!_global.emulatorsConnected) {
-    connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    const host = window.location.hostname;
+    connectFirestoreEmulator(db, host, 8080);
+    connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
     _global.emulatorsConnected = true;
-    console.log("Conectado aos Emuladores Locais do Firebase (Firestore: 8080, Auth: 9099)");
+    console.log(`Conectado aos Emuladores Locais do Firebase (Firestore: ${host}:8080, Auth: ${host}:9099)`);
   }
 }
 

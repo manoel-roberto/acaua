@@ -727,7 +727,7 @@ export const ALL_INDICATORS: Indicator[] = [
     aggregation: { type: "count", field: "profiles.id" },
     dimensions: {
       filter_collection: "profiles",
-      filters: { active: true, role: ["admin", "analista"] },
+      filters: { active: true, role: ["admin", "colaborador"] },
       group_by: null
     },
     formula_logic: "Lógica: Contagem de colaboradores ativos com papéis operacionais ('admin' ou 'analista') que não possuem nenhum log de tempo registrado em /time_logs com log_date igual à data de verificação.",

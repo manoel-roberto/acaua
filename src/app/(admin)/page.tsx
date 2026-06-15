@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { db, auth } from "@/lib/firebase/client";
 import { doc, onSnapshot, collection, getDocs, writeBatch, setDoc, query, where } from "firebase/firestore";
 import { useAuthContext } from "@/context/AuthContext";
@@ -55,12 +56,17 @@ const DEFAULT_WIDGETS: Record<string, string[]> = {
 };
 
 export default function DashboardPage() {
-  const { user } = useAuthContext();
+  const { user, profile } = useAuthContext();
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
   const [selectedHelpIndicator, setSelectedHelpIndicator] = useState<Indicator | null>(null);
   const [globalMetrics, setGlobalMetrics] = useState<GlobalMetrics | null>(null);
   const [staticLoading, setStaticLoading] = useState(true);
   const [dynamicLoading, setDynamicLoading] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Estados de dados operacionais brutos
   const [projects, setProjects] = useState<Project[]>([]);
@@ -84,18 +90,6 @@ export default function DashboardPage() {
   // Metas customizadas de indicadores por usuário
   const [customBenchmarks, setCustomBenchmarks] = useState<Record<string, number>>({});
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
-  const [isEditingExpectedHours, setIsEditingExpectedHours] = useState(false);
-
-  const saveExpectedHours = async (value: number) => {
-    try {
-      await setDoc(doc(db, "metrics", "global"), {
-        expected_hours_month: value,
-        last_updated: new Date().toISOString()
-      }, { merge: true });
-    } catch (e) {
-      console.error("Erro ao salvar horas esperadas no Firestore:", e);
-    }
-  };
 
   // Hook para carregar configuração de widgets do localStorage
   useEffect(() => {
@@ -299,7 +293,7 @@ export default function DashboardPage() {
 
   // Lista de Colaboradores únicos operacionais
   const membersList = useMemo(() => {
-    return profiles.filter(p => p.active && p.role !== "cliente");
+    return profiles.filter(p => p.active && p.role !== "visualizador");
   }, [profiles]);
 
 
@@ -327,18 +321,6 @@ export default function DashboardPage() {
     };
   }, [projects, activities, timeLogs, profiles, auditLogs, dateRange]);
 
-  // --- MOTOR DE PROCESSAMENTO DE BI CLIENT-SIDE ---
-  const calculatedKPIs = useMemo(() => {
-    return calculateIndicators(
-      filteredData,
-      profiles,
-      sectorFilter,
-      responsibleFilter,
-      diasUteisNoPeriodo,
-      customBenchmarks
-    );
-  }, [filteredData, profiles, sectorFilter, responsibleFilter, diasUteisNoPeriodo, customBenchmarks]);
-
   // Métricas do metrics/global
   const displayMetrics: GlobalMetrics = {
     projects_active: globalMetrics?.projects_active ?? 0,
@@ -353,6 +335,19 @@ export default function DashboardPage() {
     last_updated: globalMetrics?.last_updated ?? new Date().toISOString(),
   };
 
+  // --- MOTOR DE PROCESSAMENTO DE BI CLIENT-SIDE ---
+  const calculatedKPIs = useMemo(() => {
+    return calculateIndicators(
+      filteredData,
+      profiles,
+      sectorFilter,
+      responsibleFilter,
+      diasUteisNoPeriodo,
+      customBenchmarks,
+      displayMetrics.expected_hours_month
+    );
+  }, [filteredData, profiles, sectorFilter, responsibleFilter, diasUteisNoPeriodo, customBenchmarks, displayMetrics.expected_hours_month]);
+
   const totalHoursFiltered = useMemo(() => {
     return filteredData.timeLogs.reduce((sum, log) => sum + log.hours, 0);
   }, [filteredData.timeLogs]);
@@ -362,7 +357,7 @@ export default function DashboardPage() {
       return displayMetrics.expected_hours_month;
     }
     
-    let filteredProfiles = profiles.filter(p => p.active && p.role !== "cliente");
+    let filteredProfiles = profiles.filter(p => p.active && p.role !== "visualizador");
     
     if (sectorFilter !== "todos") {
       filteredProfiles = filteredProfiles.filter(p => p.setor === sectorFilter);
@@ -573,54 +568,23 @@ export default function DashboardPage() {
               {periodFilter === "mes" ? "Esforço Mensal" : "Esforço do Período"}
             </p>
             <p className="mt-3 text-3xl font-extrabold text-white">{totalHoursFiltered.toFixed(1)}h</p>
-            {isEditingExpectedHours ? (
-              <div className="mt-3 flex items-center gap-1.5 bg-zinc-900 border border-zinc-805 rounded-lg p-1 w-fit">
-                <span className="text-[10px] text-zinc-500 font-semibold px-1 select-none">Meta: &gt;=</span>
-                <input 
-                  type="number" 
-                  defaultValue={displayMetrics.expected_hours_month}
-                  className="w-14 bg-zinc-950 text-white border border-zinc-800 rounded px-1.5 py-0.5 text-[11px] font-bold focus:outline-none focus:border-emerald-500"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      const val = Number((e.target as HTMLInputElement).value);
-                      if (!isNaN(val)) {
-                        saveExpectedHours(val);
-                      }
-                      setIsEditingExpectedHours(false);
-                    } else if (e.key === "Escape") {
-                      setIsEditingExpectedHours(false);
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const val = Number(e.target.value);
-                    if (!isNaN(val)) {
-                      saveExpectedHours(val);
-                    }
-                    setIsEditingExpectedHours(false);
-                  }}
-                  autoFocus
-                />
-                <span className="text-[10px] text-zinc-500 font-semibold pr-1 select-none">h</span>
-              </div>
-            ) : (
-              <div className="mt-3 flex items-center gap-1.5">
-                <p className="text-xs text-zinc-550">
-                  {sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes"
-                    ? `Meta esperada: ${displayMetrics.expected_hours_month}h`
-                    : `Capacidade estimada: ${expectedHoursFiltered.toFixed(0)}h`
-                  }
-                </p>
-                {sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes" && (
-                  <button 
-                    onClick={() => setIsEditingExpectedHours(true)}
-                    className="p-0.5 rounded hover:bg-zinc-850 text-zinc-500 hover:text-white transition duration-200"
-                    title="Ajustar Meta Esperada"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="mt-3 flex items-center gap-1.5">
+              <p className="text-xs text-zinc-550">
+                {sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes"
+                  ? `Meta esperada: ${displayMetrics.expected_hours_month}h`
+                  : `Capacidade estimada: ${expectedHoursFiltered.toFixed(0)}h`
+                }
+              </p>
+              {sectorFilter === "todos" && responsibleFilter === "todos" && periodFilter === "mes" && profile?.role === "admin" && (
+                <Link 
+                  href="/parameters" 
+                  className="p-0.5 rounded hover:bg-zinc-850 text-zinc-500 hover:text-white transition duration-200 flex items-center justify-center animate-fade-in"
+                  title="Configurar nos Parâmetros Gerais"
+                >
+                  <Settings className="h-3 w-3 animate-pulse" />
+                </Link>
+              )}
+            </div>
           </div>
 
           <div className="relative overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-5 backdrop-blur-md hover:border-zinc-750 transition duration-300 group">
@@ -716,7 +680,9 @@ export default function DashboardPage() {
                           : "bg-orange-500/10 text-orange-400 border border-orange-500/10"
                       }`}>
                         {kpiData.benchmark ? <Check className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                        Meta: {widget.target_benchmark.operator} {customBenchmarks[widget.id] !== undefined ? customBenchmarks[widget.id] : widget.target_benchmark.value}{widget.target_benchmark.unit}
+                        <span>
+                          Meta: {widget.target_benchmark.operator} {customBenchmarks[widget.id] !== undefined ? customBenchmarks[widget.id] : widget.target_benchmark.value}{widget.target_benchmark.unit}
+                        </span>
                       </div>
                       <button 
                         onClick={() => setEditingTargetId(widget.id)}
@@ -943,7 +909,7 @@ export default function DashboardPage() {
       {/* ÚLTIMA ATUALIZAÇÃO */}
       <div className="flex justify-end pt-4 border-t border-zinc-850">
         <span className="text-[9px] font-mono text-zinc-650 bg-zinc-900/40 border border-zinc-850/50 px-2 py-1 rounded">
-          MÉTRICAS ATUALIZADAS: {new Date(displayMetrics.last_updated).toLocaleString("pt-BR")}
+          MÉTRICAS ATUALIZADAS: {isMounted ? new Date(displayMetrics.last_updated).toLocaleString("pt-BR") : ""}
         </span>
       </div>
 

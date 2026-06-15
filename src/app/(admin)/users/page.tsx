@@ -48,7 +48,7 @@ export default function UsersPage() {
   // Form Fields
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"admin" | "analista" | "cliente">("analista");
+  const [role, setRole] = useState<"admin" | "gestor" | "colaborador" | "visualizador">("colaborador");
   const [cargo, setCargo] = useState("");
   const [funcao, setFuncao] = useState("");
   const [setor, setSetor] = useState("");
@@ -93,7 +93,7 @@ export default function UsersPage() {
   const resetForm = () => {
     setFullName("");
     setEmail("");
-    setRole("analista");
+    setRole("colaborador");
     setCargo("");
     setFuncao("");
     setSetor("");
@@ -209,8 +209,9 @@ export default function UsersPage() {
   const getRoleLabel = (r: string) => {
     switch (r) {
       case "admin": return "Administrador";
-      case "analista": return "Analista";
-      case "cliente": return "Cliente";
+      case "gestor": return "Gestor";
+      case "colaborador": return "Colaborador";
+      case "visualizador": return "Visualizador";
       default: return r;
     }
   };
@@ -218,8 +219,9 @@ export default function UsersPage() {
   const getRoleColor = (r: string) => {
     switch (r) {
       case "admin": return "bg-red-500/10 text-red-400 border-red-500/20";
-      case "analista": return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-      case "cliente": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      case "gestor": return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      case "colaborador": return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+      case "visualizador": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
       default: return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
     }
   };
@@ -311,8 +313,9 @@ export default function UsersPage() {
               >
                 <option value="" className="bg-zinc-950">Todos os Papéis</option>
                 <option value="admin" className="bg-zinc-950">Administrador</option>
-                <option value="analista" className="bg-zinc-950">Analista</option>
-                <option value="cliente" className="bg-zinc-950">Cliente</option>
+                <option value="gestor" className="bg-zinc-950">Gestor</option>
+                <option value="colaborador" className="bg-zinc-950">Colaborador</option>
+                <option value="visualizador" className="bg-zinc-950">Visualizador</option>
               </select>
               <div className="pointer-events-none absolute right-3 bottom-2.5 text-[10px] text-zinc-550">▼</div>
             </div>
@@ -577,8 +580,9 @@ export default function UsersPage() {
                   className="w-full rounded-lg border border-zinc-850 bg-zinc-900/60 p-2.5 text-xs text-white focus:border-emerald-500/50 focus:outline-none cursor-pointer"
                 >
                   <option value="admin" className="bg-zinc-950 text-white">Administrador (Acesso Total)</option>
-                  <option value="analista" className="bg-zinc-950 text-white">Analista (Executa/Gerencia)</option>
-                  <option value="cliente" className="bg-zinc-950 text-white">Cliente (Acompanha/Propõe)</option>
+                  <option value="gestor" className="bg-zinc-950 text-white">Gestor (Gerencia Projetos/Equipes)</option>
+                  <option value="colaborador" className="bg-zinc-950 text-white">Colaborador (Executa Atividades)</option>
+                  <option value="visualizador" className="bg-zinc-950 text-white">Visualizador (Somente Leitura)</option>
                 </select>
               </div>
 

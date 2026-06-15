@@ -204,6 +204,18 @@ describe("Dashboard BI Engine - Lógica de Indicadores", () => {
     expect(results["fte_efetivo_carteira_mensal"].value).toBe(3.0);
   });
 
+  it("deve calcular o FTE Efetivo da carteira utilizando o parâmetro de horas esperadas mensal dinâmico", () => {
+    const data = createEmptyData();
+    // 200 horas registradas. Se o parâmetro expectedHoursMonth for 100, deve resultar em 2.0 FTEs.
+    data.timeLogs = [
+      { id: "t1", person_id: "u1", project_id: "p1", hours: 120 } as TimeLog,
+      { id: "t2", person_id: "u2", project_id: "p2", hours: 80 } as TimeLog,
+    ];
+
+    const results = calculateIndicators(data, [], "todos", "todos", 22, {}, 100);
+    expect(results["fte_efetivo_carteira_mensal"].value).toBe(2.0);
+  });
+
   it("deve marcar o benchmark de todos os indicadores como falso quando as coleções estiverem vazias (Empty States)", () => {
     const emptyData = createEmptyData();
     const results = calculateIndicators(emptyData, [], "todos", "todos", 22, {});

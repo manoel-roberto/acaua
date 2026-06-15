@@ -15,7 +15,8 @@ export function calculateIndicators(
   sectorFilter: string,
   responsibleFilter: string,
   diasUteisNoPeriodo: number,
-  customBenchmarks: Record<string, number> = {}
+  customBenchmarks: Record<string, number> = {},
+  expectedHoursMonth?: number
 ) {
   const results: Record<
     string,
@@ -96,7 +97,7 @@ export function calculateIndicators(
       } else if (type === "sum") {
         calcVal = items.reduce((sum, item) => sum + (Number(item[field]) || 0), 0);
         if (ind.id === "fte_efetivo_carteira_mensal") {
-          const hoursPerFTE = (diasUteisNoPeriodo * 8) || 160;
+          const hoursPerFTE = expectedHoursMonth && expectedHoursMonth > 0 ? expectedHoursMonth : ((diasUteisNoPeriodo * 8) || 160);
           calcVal = (calcVal as number) / hoursPerFTE;
         }
       } else if (type === "avg") {
@@ -116,7 +117,7 @@ export function calculateIndicators(
       } else if (type === "percentage") {
         if (ind.id === "tor_ociosidade_global_mensal" || ind.id === "tor_ociosidade_global") {
           const totalEsperado = profiles
-            .filter(p => p.active && p.role !== "cliente" 
+            .filter(p => p.active && p.role !== "visualizador" 
               && (sectorFilter === "todos" || p.setor === sectorFilter)
               && (responsibleFilter === "todos" || p.id === responsibleFilter)
             )
@@ -218,7 +219,7 @@ export function calculateIndicators(
         } else if (type === "sum") {
           groupVal = groupItems.reduce((s, it) => s + (Number(it[field]) || 0), 0);
           if (ind.id === "fte_efetivo_por_setor_mensal") {
-            const hoursPerFTE = (diasUteisNoPeriodo * 8) || 160;
+            const hoursPerFTE = expectedHoursMonth && expectedHoursMonth > 0 ? expectedHoursMonth : ((diasUteisNoPeriodo * 8) || 160);
             groupVal = groupVal / hoursPerFTE;
           }
         } else if (type === "avg") {
@@ -227,7 +228,7 @@ export function calculateIndicators(
           if (ind.id === "tor_ociosidade_por_setor_mensal" || ind.id === "tor_ociosidade_por_cargo_mensal") {
             const cargoOuSetor = key;
             const cargoEsperado = profiles
-              .filter(p => p.active && p.role !== "cliente" && (groupByKey === "setor" ? p.setor === cargoOuSetor : p.cargo === cargoOuSetor))
+              .filter(p => p.active && p.role !== "visualizador" && (groupByKey === "setor" ? p.setor === cargoOuSetor : p.cargo === cargoOuSetor))
               .reduce((sum, p) => sum + (p.carga_horaria / 5 * diasUteisNoPeriodo), 0);
             const cargoLancado = groupItems.reduce((sum, l) => sum + l.hours, 0);
             groupVal = cargoEsperado > 0 ? Math.max(0, ((cargoEsperado - cargoLancado) / cargoEsperado) * 100) : 0;

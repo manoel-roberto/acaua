@@ -47,3 +47,7 @@ next-env.d.ts
 firebase-data/
 
 
+# Scripts temporários de inspeção
+find_all_duplicates.js
+inspect_all.js
+list_collections.js

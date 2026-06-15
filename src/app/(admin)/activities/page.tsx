@@ -14,8 +14,8 @@ import {
 } from "@/services/activities";
 import { getProjects } from "@/services/projects";
 import { getProfiles } from "@/services/profiles";
-import { logHours } from "@/services/timeLogs";
-import { Activity, Project, ActivityType } from "@/types";
+import { logHours, getTimeLogs, deleteTimeLog } from "@/services/timeLogs";
+import { Activity, Project, ActivityType, TimeLog } from "@/types";
 import { getActivityTypes, normalizeKey } from "@/services/registrations";
 import { 
   Plus, 
@@ -201,6 +201,8 @@ export default function ActivitiesPage() {
   const [logStartTimeExecuted, setLogStartTimeExecuted] = useState("");
   const [logEndTimeExecuted, setLogEndTimeExecuted] = useState("");
   const [logDescription, setLogDescription] = useState("");
+  const [activityLogs, setActivityLogs] = useState<TimeLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // Drag and Drop State
   const [draggedActivityId, setDraggedActivityId] = useState<string | null>(null);
@@ -870,6 +872,27 @@ export default function ActivitiesPage() {
     };
   }, [user]);
 
+  useEffect(() => {
+    const activeActivity = selectedActivity || editingActivity;
+    const isOpen = isLogHoursOpen || isEditActivityOpen;
+
+    if (isOpen && activeActivity) {
+      setIsLoadingLogs(true);
+      getTimeLogs({ activityId: activeActivity.id })
+        .then(({ logs }) => {
+          setActivityLogs(logs);
+        })
+        .catch((error) => {
+          console.error("Erro ao carregar logs da atividade:", error);
+        })
+        .finally(() => {
+          setIsLoadingLogs(false);
+        });
+    } else {
+      setActivityLogs([]);
+    }
+  }, [isLogHoursOpen, isEditActivityOpen, selectedActivity, editingActivity]);
+
   const handleCreateActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !profile) return;
@@ -954,6 +977,49 @@ export default function ActivitiesPage() {
       setLogDescription("");
     } catch (error) {
       console.error("Erro ao lançar horas:", error);
+    }
+  };
+
+  const handleDeleteTimeLog = async (log: TimeLog) => {
+    if (!user || !profile) return;
+
+    const isOwner = log.person_id === user.uid;
+    const isManagerOrAdmin = profile.role === "admin" || profile.role === "gestor";
+
+    if (!isOwner && !isManagerOrAdmin) {
+      alert("Você não tem permissão para excluir este lançamento.");
+      return;
+    }
+
+    if (!confirm("Tem certeza de que deseja excluir este lançamento de horas?")) {
+      return;
+    }
+
+    try {
+      await deleteTimeLog(log);
+
+      const activeActivity = selectedActivity || editingActivity;
+      if (activeActivity) {
+        setActivities((prev) =>
+          prev.map((act) =>
+            act.id === activeActivity.id
+              ? { ...act, hours_executed: Math.max(0, act.hours_executed - log.hours) }
+              : act
+          )
+        );
+
+        if (selectedActivity && selectedActivity.id === activeActivity.id) {
+          setSelectedActivity((prev) => prev ? { ...prev, hours_executed: Math.max(0, prev.hours_executed - log.hours) } : null);
+        }
+        if (editingActivity && editingActivity.id === activeActivity.id) {
+          setEditingActivity((prev) => prev ? { ...prev, hours_executed: Math.max(0, prev.hours_executed - log.hours) } : null);
+        }
+      }
+
+      setActivityLogs((prev) => prev.filter((l) => l.id !== log.id));
+    } catch (error) {
+      console.error("Erro ao excluir lançamento de horas:", error);
+      alert("Erro ao excluir lançamento de horas. Por favor, tente novamente.");
     }
   };
 
@@ -2002,7 +2068,7 @@ export default function ActivitiesPage() {
 
   const getColActivities = (status: Activity["status"]) => {
     let baseActivities = activities;
-    if (profile?.role === "cliente" && user) {
+    if (profile?.role === "colaborador" && user) {
       baseActivities = activities.filter((act) => act.created_by === user.uid);
     }
 
@@ -2080,7 +2146,7 @@ export default function ActivitiesPage() {
 
   const getFilteredActivities = () => {
     let baseActivities = activities;
-    if (profile?.role === "cliente" && user) {
+    if (profile?.role === "colaborador" && user) {
       baseActivities = activities.filter((act) => act.created_by === user.uid);
     }
 
@@ -2491,7 +2557,7 @@ export default function ActivitiesPage() {
               >
                 <option value="" className="bg-zinc-950">Todos os Responsáveis</option>
                 {Array.from(new Set(
-                  (profile?.role === "cliente" ? activities.filter((a) => a.created_by === user?.uid) : activities)
+                  (profile?.role === "colaborador" ? activities.filter((a) => a.created_by === user?.uid) : activities)
                     .map(a => JSON.stringify({id: a.responsible_id, name: a.responsible_name}))
                  ))
                   .map(str => JSON.parse(str) as {id: string, name: string})
@@ -4270,7 +4336,7 @@ export default function ActivitiesPage() {
       {isLogHoursOpen && selectedActivity && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsLogHoursOpen(false)} />
-          <div className="relative w-full max-w-md overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-zinc-950/20 [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-750">
             <h2 className="text-lg font-bold text-white mb-4">Lançar Horas de Trabalho</h2>
             <p className="text-xs text-zinc-450 mb-6">
               Lançando progresso na atividade: <strong className="text-white">&quot;{selectedActivity.title}&quot;</strong>
@@ -4338,6 +4404,53 @@ export default function ActivitiesPage() {
                 </button>
               </div>
             </form>
+
+            {/* Histórico de Lançamentos */}
+            <div className="mt-8 pt-6 border-t border-zinc-800 space-y-4">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="h-4 w-4 text-zinc-400" />
+                Histórico de Lançamentos
+              </h3>
+
+              {isLoadingLogs ? (
+                <div className="text-xs text-zinc-500 py-2 animate-pulse">Carregando lançamentos...</div>
+              ) : activityLogs.length === 0 ? (
+                <div className="text-xs text-zinc-500 py-2 italic">Nenhum lançamento registrado para esta atividade.</div>
+              ) : (
+                <div className="space-y-3">
+                  {activityLogs.map((log) => (
+                    <div key={log.id} className="rounded-lg bg-zinc-950 p-3 border border-zinc-800/60 space-y-1 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-zinc-200">{log.person_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-350 font-bold">
+                            {log.hours}h
+                          </span>
+                          {(log.person_id === user?.uid || profile?.role === "admin" || profile?.role === "gestor") && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTimeLog(log)}
+                              className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-900 transition-colors cursor-pointer flex items-center justify-center"
+                              title="Excluir lançamento"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {log.log_date && (
+                        <div className="text-[10px] text-zinc-500">
+                          Data do lançamento: {log.log_date}
+                        </div>
+                      )}
+                      {log.description && (
+                        <p className="text-zinc-400 leading-relaxed break-words">{log.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -4747,6 +4860,53 @@ export default function ActivitiesPage() {
                 )}
               </div>
             </form>
+
+            {/* Histórico de Lançamentos */}
+            <div className="mt-8 pt-6 border-t border-zinc-800 space-y-4">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="h-4 w-4 text-zinc-400" />
+                Histórico de Lançamentos
+              </h3>
+
+              {isLoadingLogs ? (
+                <div className="text-xs text-zinc-500 py-2 animate-pulse">Carregando lançamentos...</div>
+              ) : activityLogs.length === 0 ? (
+                <div className="text-xs text-zinc-500 py-2 italic">Nenhum lançamento registrado para esta atividade.</div>
+              ) : (
+                <div className="space-y-3">
+                  {activityLogs.map((log) => (
+                    <div key={log.id} className="rounded-lg bg-zinc-950 p-3 border border-zinc-800/60 space-y-1 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-zinc-200">{log.person_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-350 font-bold">
+                            {log.hours}h
+                          </span>
+                          {(log.person_id === user?.uid || profile?.role === "admin" || profile?.role === "gestor") && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTimeLog(log)}
+                              className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-900 transition-colors cursor-pointer flex items-center justify-center"
+                              title="Excluir lançamento"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {log.log_date && (
+                        <div className="text-[10px] text-zinc-500">
+                          Data do lançamento: {log.log_date}
+                        </div>
+                      )}
+                      {log.description && (
+                        <p className="text-zinc-400 leading-relaxed break-words">{log.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

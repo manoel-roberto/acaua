@@ -44,7 +44,7 @@ export function useProfile(user: User | null) {
               setor: preProfileData.setor || "NGD",
               carga_horaria: preProfileData.carga_horaria || 40,
               avatar_url: user.photoURL || "",
-              role: preProfileData.role || "analista",
+              role: preProfileData.role || "colaborador",
               active: preProfileData.active !== undefined ? preProfileData.active : true,
               created_at: preProfileData.created_at || new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -65,11 +65,11 @@ export function useProfile(user: User | null) {
               if (user.email === "admin@ngd.com") return "admin";
               if (isEmulatorActive) {
                 const emailLower = (user.email || "").toLowerCase();
-                if (emailLower.includes("cliente")) return "cliente";
-                if (emailLower.includes("analista")) return "analista";
+                if (emailLower.includes("visualizador")) return "visualizador";
+                if (emailLower.includes("colaborador")) return "colaborador";
                 return "admin"; // Default admin for development login
               }
-              return "analista";
+              return "colaborador";
             };
 
             const newProfile: UserProfile = {

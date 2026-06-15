@@ -7,7 +7,7 @@ export interface UserProfile {
   setor: string;
   carga_horaria: number;
   avatar_url: string;
-  role: "admin" | "analista" | "cliente";
+  role: "admin" | "gestor" | "colaborador" | "visualizador";
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -164,11 +164,13 @@ export interface Sector {
 export interface ActivityType {
   id: string;
   name: string;
+  key: string;
   created_at: string;
 }
 
 export interface Category {
   id: string;
   name: string;
+  key: string;
   created_at: string;
 }
