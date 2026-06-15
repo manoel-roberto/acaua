@@ -203,4 +203,38 @@ describe("Dashboard BI Engine - Lógica de Indicadores", () => {
     const results = calculateIndicators(data, [], "todos", "todos", 10, {});
     expect(results["fte_efetivo_carteira_mensal"].value).toBe(3.0);
   });
+
+  it("deve marcar o benchmark de todos os indicadores como falso quando as coleções estiverem vazias (Empty States)", () => {
+    const emptyData = createEmptyData();
+    const results = calculateIndicators(emptyData, [], "todos", "todos", 22, {});
+    ALL_INDICATORS.forEach((ind) => {
+      expect(results[ind.id].benchmark).toBe(false);
+    });
+  });
+
+  it("deve aplicar corretamente o filtro de GP / Responsável no cálculo de TOR (Taxa de Ociosidade Relativa)", () => {
+    const data = createEmptyData();
+    const profiles = [
+      { id: "u1", email: "u1@uefs.br", full_name: "User 1", active: true, role: "colaborador", setor: "desenvolvimento", carga_horaria: 40 } as UserProfile,
+      { id: "u2", email: "u2@uefs.br", full_name: "User 2", active: true, role: "colaborador", setor: "desenvolvimento", carga_horaria: 40 } as UserProfile,
+    ];
+
+    // u1 lança 80h (ociosidade 0% para 10 dias úteis com 40h semanais -> 80h totais)
+    // u2 lança 0h (ociosidade 100%)
+    data.timeLogs = [
+      { id: "t1", person_id: "u1", hours: 80 } as TimeLog,
+    ];
+
+    // Sem filtro: Total esperado = 160h, Lançado = 80h -> TOR = 50%
+    const resAll = calculateIndicators(data, profiles, "todos", "todos", 10, {});
+    expect(resAll["tor_ociosidade_global_mensal"].value).toBe(50);
+
+    // Filtrando por u1: Esperado = 80h, Lançado = 80h -> TOR = 0%
+    const resU1 = calculateIndicators(data, profiles, "todos", "u1", 10, {});
+    expect(resU1["tor_ociosidade_global_mensal"].value).toBe(0);
+
+    // Filtrando por u2: Esperado = 80h, Lançado = 0h -> TOR = 100%
+    const resU2 = calculateIndicators(data, profiles, "todos", "u2", 10, {});
+    expect(resU2["tor_ociosidade_global_mensal"].value).toBe(100);
+  });
 });

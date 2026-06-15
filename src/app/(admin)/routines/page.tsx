@@ -20,12 +20,14 @@ import {
   Eye,
   Search,
   Filter,
-  Lock
+  Lock,
+  HelpCircle
 } from "lucide-react";
 import { getRoutines, createRoutine, updateRoutine, deleteRoutine } from "@/services/routines";
 import { getProjects } from "@/services/projects";
 import { RecurringRoutine, Project } from "@/types";
 import { DocumentSnapshot } from "firebase/firestore";
+import { useToast } from "@/context/ToastContext";
 
 const getDateRangeFromShortcut = (shortcut: string): { start: string; end: string } => {
   const today = new Date();
@@ -87,6 +89,7 @@ const calculateHoursBetween = (start: string, end: string): string => {
 
 export default function RoutinesPage() {
   const { user, profile, hasPermission } = useAuthContext();
+  const { addToast } = useToast();
   const [routines, setRoutines] = useState<RecurringRoutine[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -315,6 +318,7 @@ export default function RoutinesPage() {
             r.id === editingRoutine.id ? { ...r, ...routineData } : r
           )
         );
+        addToast("Rotina recorrente atualizada com sucesso!", "success");
       } else {
         const newRoutine = await createRoutine({
           ...routineData,
@@ -322,12 +326,14 @@ export default function RoutinesPage() {
           created_by: user.uid,
         }, profile.full_name);
         setRoutines((prev) => [newRoutine, ...prev]);
+        addToast("Rotina recorrente criada com sucesso!", "success");
       }
 
       setIsModalOpen(false);
       resetForm();
     } catch (error) {
       console.error("Erro ao salvar rotina:", error);
+      addToast("Ocorreu um erro ao salvar a rotina.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -340,8 +346,13 @@ export default function RoutinesPage() {
       setRoutines((prev) =>
         prev.map((r) => (r.id === routine.id ? { ...r, active: nextActive } : r))
       );
+      addToast(
+        `Rotina "${routine.title}" ${nextActive ? "ativada" : "pausada"} com sucesso!`,
+        "success"
+      );
     } catch (error) {
       console.error("Erro ao alternar status da rotina:", error);
+      addToast("Erro ao alterar o status da rotina.", "error");
     }
   };
 
@@ -350,8 +361,10 @@ export default function RoutinesPage() {
     try {
       await deleteRoutine(id);
       setRoutines((prev) => prev.filter((r) => r.id !== id));
+      addToast("Rotina recorrente excluída com sucesso!", "success");
     } catch (error) {
       console.error("Erro ao excluir rotina:", error);
+      addToast("Erro ao excluir a rotina. Tente novamente.", "error");
     }
   };
 
@@ -929,7 +942,15 @@ export default function RoutinesPage() {
                 
                 {/* General Info */}
                 <div className="space-y-2 col-span-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Título da Rotina</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Título da Rotina
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Rotinas recorrentes são tarefas operacionais padronizadas que se repetem periodicamente de acordo com a frequência definida. O sistema agenda e gera automaticamente atividades individuais no Kanban baseando-se nestas configurações.
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     required
@@ -953,7 +974,15 @@ export default function RoutinesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Projeto Vinculado</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Projeto Vinculado
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Vincula a rotina a um projeto específico para monitoramento de esforço e indicadores setoriais da carteira. Selecione 'Sem vínculo' para rotinas gerais.
+                      </div>
+                    </div>
+                  </label>
                   <select
                     disabled={!canEditRoutine(editingRoutine)}
                     value={projectId}
@@ -1118,7 +1147,15 @@ export default function RoutinesPage() {
 
                 {/* Additional details */}
                 <div className="space-y-2 col-span-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Observações</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Observações
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Informações detalhadas, instruções operacionais ou links úteis de apoio para a execução da rotina.
+                      </div>
+                    </div>
+                  </label>
                   <textarea
                     disabled={!canEditRoutine(editingRoutine)}
                     value={observations}
@@ -1129,7 +1166,15 @@ export default function RoutinesPage() {
                 </div>
 
                 <div className="space-y-2 col-span-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Tags (Separadas por vírgula)</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Tags (Separadas por vírgula)
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Palavras-chave separadas por vírgula para categorizar e facilitar a busca ou filtros rápidos no painel e relatórios.
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     disabled={!canEditRoutine(editingRoutine)}

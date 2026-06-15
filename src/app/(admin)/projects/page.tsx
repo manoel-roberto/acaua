@@ -26,11 +26,13 @@ import {
   Archive,
   Search,
   Lock,
-  Trash2
+  Trash2,
+  HelpCircle
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase/client";
 import { doc, onSnapshot, DocumentSnapshot } from "firebase/firestore";
 import { updateArchiveDaysLimit } from "@/services/settings";
+import { useToast } from "@/context/ToastContext";
 
 const getDateRangeFromShortcut = (shortcut: string): { start: string; end: string } => {
   const today = new Date();
@@ -80,6 +82,7 @@ const getDateRangeFromShortcut = (shortcut: string): { start: string; end: strin
 
 export default function ProjectsPage() {
   const { user, profile, hasPermission } = useAuthContext();
+  const { addToast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot | undefined>(undefined);
@@ -310,8 +313,10 @@ export default function ProjectsPage() {
 
       setIsEditModalOpen(false);
       setEditingProject(null);
+      addToast("Projeto atualizado com sucesso!", "success");
     } catch (error) {
       console.error("Erro ao editar projeto:", error);
+      addToast("Ocorreu um erro ao editar o projeto.", "error");
     }
   };
 
@@ -330,9 +335,10 @@ export default function ProjectsPage() {
       // Refresh local projects list
       const { projects: list } = await getProjects({ includeArchived: showArchived });
       setProjects(list);
+      addToast("Projeto excluído com sucesso!", "success");
     } catch (error) {
       console.error("Erro ao excluir projeto:", error);
-      alert("Ocorreu um erro ao excluir o projeto. Tente novamente.");
+      addToast("Ocorreu um erro ao excluir o projeto. Tente novamente.", "error");
     }
   };
 
@@ -431,8 +437,10 @@ export default function ProjectsPage() {
       setProjects((prev) => [newProj, ...prev]);
       setIsModalOpen(false);
       resetForm();
+      addToast("Projeto criado com sucesso!", "success");
     } catch (error) {
       console.error("Erro ao criar projeto:", error);
+      addToast("Erro ao criar o projeto. Tente novamente.", "error");
     }
   };
 
@@ -460,8 +468,10 @@ export default function ProjectsPage() {
 
       setIsEditStatusModalOpen(false);
       setSelectedProject(null);
+      addToast("Status do projeto atualizado com sucesso!", "success");
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
+      addToast("Erro ao atualizar o status do projeto.", "error");
     }
   };
 
@@ -573,8 +583,10 @@ export default function ProjectsPage() {
             : p
         )
       );
+      addToast(`Status do projeto "${project.name}" atualizado!`, "success");
     } catch (error) {
       console.error("Erro ao mover status do projeto:", error);
+      addToast("Erro ao atualizar o status do projeto.", "error");
     }
   };
 
@@ -1350,7 +1362,15 @@ export default function ProjectsPage() {
             <form onSubmit={handleCreateProject} className="space-y-6">
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2 col-span-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Nome do Projeto</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Nome do Projeto
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Nome identificador do projeto da carteira estratégica (ex: Novo Portal NGD).
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     required
@@ -1372,7 +1392,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Categoria</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Categoria
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Classificação temática do projeto de acordo com a área de atuação no NGD.
+                      </div>
+                    </div>
+                  </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
@@ -1426,7 +1454,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Horas Estimadas</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Horas Estimadas
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Total planejado de esforço em horas para conclusão de todo o projeto.
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="number"
                     value={estimatedHours}
@@ -1437,7 +1473,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2 col-span-2 sm:col-span-1">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Processo SEI</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Processo SEI
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Identificador oficial do processo de tramitação na UEFS (formato sugerido: XXXXX.XXXXXX/AAAA-XX).
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={seiCode}
@@ -1448,7 +1492,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2 col-span-2 sm:col-span-1">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Origem da Demanda</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Origem da Demanda
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Indica o setor solicitante ou a motivação geradora do projeto (ex: NGD, Colegiados, Pró-Reitorias).
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={origem}
@@ -1460,7 +1512,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Tags (Separadas por vírgula)</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Tags (Separadas por vírgula)
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Palavras-chave separadas por vírgula para categorizar e facilitar a busca ou filtros rápidos no painel e relatórios.
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     value={tagsInput}
@@ -1571,7 +1631,15 @@ export default function ProjectsPage() {
             <form onSubmit={handleEditProject} className="space-y-6">
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2 col-span-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Nome do Projeto</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Nome do Projeto
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Nome identificador do projeto da carteira estratégica (ex: Novo Portal NGD).
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     required
@@ -1595,7 +1663,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Categoria</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Categoria
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Classificação temática do projeto de acordo com a área de atuação no NGD.
+                      </div>
+                    </div>
+                  </label>
                   <select
                     disabled={!canEditProject(editingProject)}
                     value={editCategory}
@@ -1671,7 +1747,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Horas Estimadas</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Horas Estimadas
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Total planejado de effort em horas para conclusão de todo o projeto.
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="number"
                     disabled={!canEditProject(editingProject)}
@@ -1683,7 +1767,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2 col-span-2 sm:col-span-1">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Processo SEI</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Processo SEI
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Identificador oficial do processo de tramitação na UEFS (formato sugerido: XXXXX.XXXXXX/AAAA-XX).
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     disabled={!canEditProject(editingProject)}
@@ -1695,7 +1787,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2 col-span-2 sm:col-span-1">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Origem da Demanda</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Origem da Demanda
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Indica o setor solicitante ou a motivação geradora do projeto (ex: NGD, Colegiados, Pró-Reitorias).
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     disabled={!canEditProject(editingProject)}
@@ -1708,7 +1808,15 @@ export default function ProjectsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Tags (Separadas por vírgula)</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    Tags (Separadas por vírgula)
+                    <div className="group relative inline-block">
+                      <HelpCircle className="h-3.5 w-3.5 text-zinc-500 hover:text-zinc-300 transition-colors cursor-help" />
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-zinc-950 p-2 text-xs font-normal text-zinc-300 shadow-xl border border-zinc-800 opacity-0 transition-opacity group-hover:opacity-100 whitespace-normal normal-case">
+                        Palavras-chave separadas por vírgula para categorizar e facilitar a busca ou filtros rápidos no painel e relatórios.
+                      </div>
+                    </div>
+                  </label>
                   <input
                     type="text"
                     disabled={!canEditProject(editingProject)}

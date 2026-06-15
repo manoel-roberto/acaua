@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import { useAuthContext } from "@/context/AuthContext";
 import { Database, ShieldAlert, Mail, Lock, User, Sparkles } from "lucide-react";
 import { isEmulatorActive } from "@/lib/firebase/client";
+import { useToast } from "@/context/ToastContext";
 
 export default function LoginPage() {
   const { loginWithGoogle, loginWithEmail, registerWithEmail, loading, error: authError } = useAuthContext();
+  const { addToast } = useToast();
   
   // Abas e Formulário
   const [isRegister, setIsRegister] = useState(false);
@@ -41,15 +43,24 @@ export default function LoginPage() {
         setLocalError("Digite seu nome completo para se cadastrar.");
         return;
       }
-      await registerWithEmail(email, password, fullName);
+      const success = await registerWithEmail(email, password, fullName);
+      if (success) {
+        addToast("Sua conta foi criada com sucesso! Seja bem-vindo ao Acauã.", "success");
+      }
     } else {
-      await loginWithEmail(email, password);
+      const success = await loginWithEmail(email, password);
+      if (success) {
+        addToast("Acesso autorizado! Redirecionando...", "success");
+      }
     }
   };
 
   const handleGoogleLogin = async () => {
     setLocalError(null);
-    await loginWithGoogle();
+    const success = await loginWithGoogle();
+    if (success) {
+      addToast("Acesso autorizado via Google! Redirecionando...", "success");
+    }
   };
 
   const isEmulator = isEmulatorActive;

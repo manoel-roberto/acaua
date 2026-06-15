@@ -51,20 +51,22 @@ export function calculateNextRun(
   const year = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10) - 1;
   const day = parseInt(parts[2], 10);
-  let date = new Date(year, month, day);
+  
+  // Usamos Date.UTC para evitar transições de fuso horário local / DST
+  let date = new Date(Date.UTC(year, month, day));
 
   if (frequency === "hora" || frequency === "dia") {
-    date.setDate(date.getDate() + interval);
+    date.setUTCDate(date.getUTCDate() + interval);
   } else if (frequency === "semana") {
     if (!weekDays || weekDays.length === 0) {
-      date.setDate(date.getDate() + interval * 7);
+      date.setUTCDate(date.getUTCDate() + interval * 7);
     } else {
-      let originalDate = new Date(year, month, day);
+      let originalDate = new Date(Date.UTC(year, month, day));
       
       const getStartOfWeek = (d: Date) => {
-        const temp = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        const dayOfWeek = temp.getDay();
-        temp.setDate(temp.getDate() - dayOfWeek);
+        const temp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        const dayOfWeek = temp.getUTCDay();
+        temp.setUTCDate(temp.getUTCDate() - dayOfWeek);
         return temp;
       };
       
@@ -74,8 +76,8 @@ export function calculateNextRun(
       
       while (!found && loops < 1000) {
         loops++;
-        date.setDate(date.getDate() + 1);
-        const dayOfWeek = date.getDay();
+        date.setUTCDate(date.getUTCDate() + 1);
+        const dayOfWeek = date.getUTCDay();
         if (weekDays.includes(dayOfWeek)) {
           const candidateWeekStart = getStartOfWeek(date);
           const diffTime = Math.abs(candidateWeekStart.getTime() - originalWeekStart.getTime());
@@ -88,14 +90,14 @@ export function calculateNextRun(
       }
     }
   } else if (frequency === "mes") {
-    date.setMonth(date.getMonth() + interval);
+    date.setUTCMonth(date.getUTCMonth() + interval);
   } else if (frequency === "ano") {
-    date.setFullYear(date.getFullYear() + interval);
+    date.setUTCFullYear(date.getUTCFullYear() + interval);
   }
 
-  const nextYear = date.getFullYear();
-  const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
-  const nextDay = String(date.getDate()).padStart(2, "0");
+  const nextYear = date.getUTCFullYear();
+  const nextMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const nextDay = String(date.getUTCDate()).padStart(2, "0");
   return `${nextYear}-${nextMonth}-${nextDay}`;
 }
 

@@ -638,7 +638,7 @@ export default function DashboardPage() {
       )}
 
       {/* GRID DE WIDGETS DINÂMICOS CUSTOMIZÁVEIS */}
-      <div className={`grid gap-6 md:grid-cols-2 transition-opacity duration-300 ${dynamicLoading ? "opacity-60" : "opacity-100"}`}>
+      <div className={`grid gap-6 md:grid-cols-2 grid-flow-row-dense transition-opacity duration-300 ${dynamicLoading ? "opacity-60" : "opacity-100"}`}>
         {widgetsToShow.map(widget => {
           const kpiData = calculatedKPIs[widget.id] || { value: 0, benchmark: true };
           

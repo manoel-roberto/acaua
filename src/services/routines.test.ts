@@ -36,6 +36,24 @@ describe("Serviço de Rotinas Recorrentes (routines)", () => {
       // Terça-feira (2), a partir de 2026-06-08 (Segunda) -> deve cair no dia seguinte
       const resNextDay = calculateNextRun("2026-06-08", "semana", 1, [2]);
       expect(resNextDay).toBe("2026-06-09");
+
+      // Segundas (1) e Quartas (3), intervalo 1 (toda semana):
+      // A partir de Segunda 2026-06-08 deve ir para Quarta 2026-06-10
+      const resSegToQua = calculateNextRun("2026-06-08", "semana", 1, [1, 3]);
+      expect(resSegToQua).toBe("2026-06-10");
+
+      // A partir de Quarta 2026-06-10 deve ir para Segunda 2026-06-15 da próxima semana
+      const resQuaToSeg = calculateNextRun("2026-06-10", "semana", 1, [1, 3]);
+      expect(resQuaToSeg).toBe("2026-06-15");
+
+      // Segundas (1) e Quartas (3), intervalo 2 (a cada 2 semanas):
+      // A partir de Segunda 2026-06-08 (Semana A) deve ir para Quarta 2026-06-10 (Semana A)
+      const resSegToQuaInt2 = calculateNextRun("2026-06-08", "semana", 2, [1, 3]);
+      expect(resSegToQuaInt2).toBe("2026-06-10");
+
+      // A partir de Quarta 2026-06-10 (Semana A) deve ir para Segunda 2026-06-22 (Semana A + 2)
+      const resQuaToSegInt2 = calculateNextRun("2026-06-10", "semana", 2, [1, 3]);
+      expect(resQuaToSegInt2).toBe("2026-06-22");
     });
 
     it("deve calcular a próxima execução para frequências mês e ano", () => {

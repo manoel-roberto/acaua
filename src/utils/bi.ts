@@ -88,7 +88,8 @@ export function calculateIndicators(
     if (!groupByKey || ind.aggregation.type === "ratio") {
       // Redução a um valor único (KPI Card)
       let calcVal: number | string = 0;
-      if (items.length === 0) {
+      const isOciosidade = ind.id === "tor_ociosidade_global_mensal" || ind.id === "tor_ociosidade_global";
+      if (items.length === 0 && !isOciosidade) {
         calcVal = 0;
       } else if (type === "count") {
         calcVal = items.length;
@@ -115,10 +116,15 @@ export function calculateIndicators(
       } else if (type === "percentage") {
         if (ind.id === "tor_ociosidade_global_mensal" || ind.id === "tor_ociosidade_global") {
           const totalEsperado = profiles
-            .filter(p => p.active && p.role !== "cliente" && (sectorFilter === "todos" || p.setor === sectorFilter))
-            .reduce((sum, p) => sum + (p.carga_horaria / 5 * diasUteisNoPeriodo), 0);
+            .filter(p => p.active && p.role !== "cliente" 
+              && (sectorFilter === "todos" || p.setor === sectorFilter)
+              && (responsibleFilter === "todos" || p.id === responsibleFilter)
+            )
+            .reduce((sum, p) => sum + ((p.carga_horaria || 40) / 5 * diasUteisNoPeriodo), 0);
           const totalLancado = filteredData.timeLogs
-            .filter(log => sectorFilter === "todos" || profiles.find(p => p.id === log.person_id)?.setor === sectorFilter)
+            .filter(log => (sectorFilter === "todos" || profiles.find(p => p.id === log.person_id)?.setor === sectorFilter)
+              && (responsibleFilter === "todos" || log.person_id === responsibleFilter)
+            )
             .reduce((sum, log) => sum + log.hours, 0);
           calcVal = totalEsperado > 0 ? Math.max(0, ((totalEsperado - totalLancado) / totalEsperado) * 100) : 0;
         } else if (ind.id === "horas_reuniao_percentual_mensal") {
@@ -152,11 +158,23 @@ export function calculateIndicators(
       let passBenchmark = false;
       const numericVal = Number(calcVal) || 0;
 
-      if (operator === ">=") passBenchmark = numericVal >= benchmarkValue;
-      else if (operator === "<=") passBenchmark = numericVal <= benchmarkValue;
-      else if (operator === "==") passBenchmark = numericVal === benchmarkValue;
-      else if (operator === ">") passBenchmark = numericVal > benchmarkValue;
-      else if (operator === "<") passBenchmark = numericVal < benchmarkValue;
+      const collectionName = ind.dimensions.filter_collection;
+      const isCollectionEmpty = 
+        (collectionName === "projects" && filteredData.projects.length === 0) ||
+        (collectionName === "activities" && filteredData.activities.length === 0) ||
+        (collectionName === "time_logs" && filteredData.timeLogs.length === 0) ||
+        (collectionName === "profiles" && filteredData.profiles.length === 0) ||
+        (collectionName === "audit_logs" && filteredData.auditLogs.length === 0);
+
+      if (isCollectionEmpty) {
+        passBenchmark = false;
+      } else {
+        if (operator === ">=") passBenchmark = numericVal >= benchmarkValue;
+        else if (operator === "<=") passBenchmark = numericVal <= benchmarkValue;
+        else if (operator === "==") passBenchmark = numericVal === benchmarkValue;
+        else if (operator === ">") passBenchmark = numericVal > benchmarkValue;
+        else if (operator === "<") passBenchmark = numericVal < benchmarkValue;
+      }
 
       results[ind.id] = {
         value: typeof calcVal === "number" ? Number(calcVal.toFixed(1)) : calcVal,
@@ -227,10 +245,31 @@ export function calculateIndicators(
       // Ordena maior para menor
       listResults.sort((a, b) => b.value - a.value);
 
+      const benchmarkValue = customBenchmarks[ind.id] !== undefined ? customBenchmarks[ind.id] : ind.target_benchmark.value;
+      const operator = ind.target_benchmark.operator;
+      let passBenchmark = false;
+
+      const collectionName = ind.dimensions.filter_collection;
+      const isCollectionEmpty = 
+        (collectionName === "projects" && filteredData.projects.length === 0) ||
+        (collectionName === "activities" && filteredData.activities.length === 0) ||
+        (collectionName === "time_logs" && filteredData.timeLogs.length === 0) ||
+        (collectionName === "profiles" && filteredData.profiles.length === 0) ||
+        (collectionName === "audit_logs" && filteredData.auditLogs.length === 0);
+
+      if (listResults.length > 0 && !isCollectionEmpty) {
+        const maxVal = listResults[0].value;
+        if (operator === ">=") passBenchmark = maxVal >= benchmarkValue;
+        else if (operator === "<=") passBenchmark = maxVal <= benchmarkValue;
+        else if (operator === "==") passBenchmark = maxVal === benchmarkValue;
+        else if (operator === ">") passBenchmark = maxVal > benchmarkValue;
+        else if (operator === "<") passBenchmark = maxVal < benchmarkValue;
+      }
+
       results[ind.id] = {
         value: listResults.length > 0 ? listResults[0].value : 0,
         list: listResults.slice(0, 10), // Limitado a top 10 para visualização
-        benchmark: true
+        benchmark: passBenchmark
       };
     }
   });

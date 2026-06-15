@@ -35,19 +35,21 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
       await signInWithPopup(auth, googleProvider);
+      return true;
     } catch (err: any) {
       console.error("Erro na autenticação com o Google:", err);
       setError("Falha ao autenticar com o Google. Tente novamente.");
       setLoading(false);
+      return false;
     }
   };
 
-  const loginWithEmail = async (email: string, pass: string) => {
+  const loginWithEmail = async (email: string, pass: string): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
@@ -56,13 +58,14 @@ export function useAuth() {
       }
       try {
         await signInWithEmailAndPassword(auth, email, pass);
+        return true;
       } catch (err: any) {
         // Inicialização do administrador master na primeira execução
         if (email === "admin@ngd.com" && pass === "Uefs@2026") {
           try {
             const res = await createUserWithEmailAndPassword(auth, email, pass);
             await updateProfile(res.user, { displayName: "Administrador Master" });
-            return;
+            return true;
           } catch (createErr: any) {
             if (createErr.code === "auth/email-already-in-use") {
               throw err; // Lança o erro original de login (pois a conta já existe e a senha padrão não confere mais)
@@ -80,10 +83,11 @@ export function useAuth() {
         setError(err.message || "Falha ao realizar login. Tente novamente.");
       }
       setLoading(false);
+      return false;
     }
   };
 
-  const registerWithEmail = async (email: string, pass: string, fullName: string) => {
+  const registerWithEmail = async (email: string, pass: string, fullName: string): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
@@ -95,6 +99,7 @@ export function useAuth() {
       }
       const res = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(res.user, { displayName: fullName });
+      return true;
     } catch (err: any) {
       console.error("Erro ao cadastrar:", err);
       if (err.code === "auth/email-already-in-use") {
@@ -103,6 +108,7 @@ export function useAuth() {
         setError(err.message || "Falha ao realizar cadastro. Tente novamente.");
       }
       setLoading(false);
+      return false;
     }
   };
 

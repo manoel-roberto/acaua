@@ -17,9 +17,9 @@ interface AuthContextType {
   hasPermission: (module: keyof RolePermissions, action: keyof ModulePermissions) => boolean;
   loading: boolean;
   error: string | null;
-  loginWithGoogle: () => Promise<void>;
-  loginWithEmail: (email: string, pass: string) => Promise<void>;
-  registerWithEmail: (email: string, pass: string, fullName: string) => Promise<void>;
+  loginWithGoogle: () => Promise<boolean>;
+  loginWithEmail: (email: string, pass: string) => Promise<boolean>;
+  registerWithEmail: (email: string, pass: string, fullName: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
 
