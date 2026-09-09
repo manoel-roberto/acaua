@@ -137,3 +137,60 @@ export async function deleteTimeLog(log: TimeLog): Promise<void> {
 
   await batch.commit();
 }
+
+// Atomic time log update using writeBatch to update all related collections and adjust counters incrementally
+export async function updateTimeLog(
+  logId: string,
+  updatedData: {
+    hours: number;
+    description: string;
+    start_time: string | null;
+    end_time: string | null;
+  },
+  oldLog: TimeLog
+): Promise<void> {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  const diff = updatedData.hours - oldLog.hours;
+
+  // 1. Update the Time Log document
+  const logRef = doc(db, "time_logs", logId);
+  batch.update(logRef, {
+    hours: updatedData.hours,
+    description: updatedData.description,
+    start_time: updatedData.start_time,
+    end_time: updatedData.end_time,
+    updated_at: now,
+  });
+
+  // 2. Adjust executed hours in Activity (increment by the diff)
+  if (oldLog.activity_id) {
+    const activityRef = doc(db, "activities", oldLog.activity_id);
+    batch.update(activityRef, {
+      hours_executed: increment(diff),
+      updated_at: now,
+    });
+  }
+
+  // 3. Adjust executed hours in Project (increment by the diff)
+  if (oldLog.project_id) {
+    const projectRef = doc(db, "projects", oldLog.project_id);
+    batch.update(projectRef, {
+      executed_hours: increment(diff),
+      updated_at: now,
+    });
+  }
+
+  // 4. Adjust global metrics (increment by the diff)
+  const globalMetricsRef = doc(db, "metrics", "global");
+  batch.set(
+    globalMetricsRef,
+    {
+      total_hours_month: increment(diff),
+      last_updated: now,
+    },
+    { merge: true }
+  );
+
+  await batch.commit();
+}

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "@/test/firebaseMock"; // Ativa mocks do Firebase
 import { clearMockDb, setMockDoc, getMockCollectionData } from "@/test/firebaseMock";
-import { getTimeLogs, logHours, deleteTimeLog } from "./timeLogs";
+import { getTimeLogs, logHours, deleteTimeLog, updateTimeLog } from "./timeLogs";
 import { TimeLog } from "@/types";
 
 describe("Serviço de Lançamento de Horas (timeLogs)", () => {
@@ -113,6 +113,60 @@ describe("Serviço de Lançamento de Horas (timeLogs)", () => {
       // 6. Verifica se decrementou a métrica global
       const metrics = getMockCollectionData("metrics").find((m: Record<string, unknown>) => m.id === "global") as Record<string, unknown>;
       expect(metrics.total_hours_month).toBe(20); // 23 - 3
+    });
+  });
+
+  describe("updateTimeLog", () => {
+    it("deve atualizar o lançamento e ajustar incrementalmente as horas executadas na atividade/projeto e metrics/global", async () => {
+      // 1. Configura estado inicial dos documentos relacionados
+      setMockDoc("activities", "act_1", { title: "Atividade 1", hours_executed: 8 });
+      setMockDoc("projects", "proj_1", { name: "Projeto 1", executed_hours: 13 });
+      setMockDoc("metrics", "global", { total_hours_month: 23 });
+      setMockDoc("time_logs", "log_update", {
+        id: "log_update",
+        person_id: "u1",
+        person_name: "Manoel",
+        activity_id: "act_1",
+        activity_title: "Atividade 1",
+        project_id: "proj_1",
+        project_name: "Projeto 1",
+        hours: 3,
+        description: "Desenvolvimento de testes unitários",
+        date: "2026-06-03"
+      });
+
+      const log = getMockCollectionData("time_logs")[0] as unknown as TimeLog;
+
+      // 2. Atualiza o lançamento para 5 horas (diferença de +2h)
+      await updateTimeLog("log_update", {
+        hours: 5,
+        description: "Desenvolvimento de testes unitários + Correção",
+        start_time: "10:00",
+        end_time: "15:00"
+      }, log);
+
+      // 3. Verifica se o log foi alterado
+      const logs = getMockCollectionData("time_logs");
+      expect(logs.length).toBe(1);
+      expect(logs[0]).toMatchObject({
+        id: "log_update",
+        hours: 5,
+        description: "Desenvolvimento de testes unitários + Correção",
+        start_time: "10:00",
+        end_time: "15:00"
+      });
+
+      // 4. Verifica se incrementou a atividade na diferença (+2h)
+      const act = getMockCollectionData("activities").find((a: Record<string, unknown>) => a.id === "act_1") as Record<string, unknown>;
+      expect(act.hours_executed).toBe(10); // 8 + 2
+
+      // 5. Verifica se incrementou o projeto na diferença (+2h)
+      const proj = getMockCollectionData("projects").find((p: Record<string, unknown>) => p.id === "proj_1") as Record<string, unknown>;
+      expect(proj.executed_hours).toBe(15); // 13 + 2
+
+      // 6. Verifica se incrementou a métrica global na diferença (+2h)
+      const metrics = getMockCollectionData("metrics").find((m: Record<string, unknown>) => m.id === "global") as Record<string, unknown>;
+      expect(metrics.total_hours_month).toBe(25); // 23 + 2
     });
   });
 });

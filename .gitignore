@@ -45,9 +45,31 @@ next-env.d.ts
 *-debug.log
 .firebase_cache/
 firebase-data/
+firebase-export-*/
 
+# gemini
+.gemini/
+
+# python & venv
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+
+# databases
+*.db
+*.sqlite
+*.sqlite3
+
+# keys & certs
+*.pem
+*.key
+*rsa*
+id_rsa*
 
 # Scripts temporários de inspeção
 find_all_duplicates.js
 inspect_all.js
 list_collections.js
+

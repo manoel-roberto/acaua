@@ -87,6 +87,8 @@ export interface TimeLog {
   description: string;
   is_overtime: boolean;
   created_at: string;
+  start_time?: string;
+  end_time?: string;
 }
 
 export interface GlobalMetrics {

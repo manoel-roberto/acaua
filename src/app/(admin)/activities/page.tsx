@@ -14,7 +14,7 @@ import {
 } from "@/services/activities";
 import { getProjects } from "@/services/projects";
 import { getProfiles } from "@/services/profiles";
-import { logHours, getTimeLogs, deleteTimeLog } from "@/services/timeLogs";
+import { logHours, getTimeLogs, deleteTimeLog, updateTimeLog } from "@/services/timeLogs";
 import { Activity, Project, ActivityType, TimeLog } from "@/types";
 import { getActivityTypes, normalizeKey } from "@/services/registrations";
 import { 
@@ -203,6 +203,7 @@ export default function ActivitiesPage() {
   const [logDescription, setLogDescription] = useState("");
   const [activityLogs, setActivityLogs] = useState<TimeLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [editingLog, setEditingLog] = useState<TimeLog | null>(null);
 
   // Drag and Drop State
   const [draggedActivityId, setDraggedActivityId] = useState<string | null>(null);
@@ -562,10 +563,12 @@ export default function ActivitiesPage() {
       } else {
         setHoursToLog("");
       }
+    } else if (editingLog) {
+      setHoursToLog(editingLog.hours.toString());
     } else {
       setHoursToLog("");
     }
-  }, [logStartTimeExecuted, logEndTimeExecuted]);
+  }, [logStartTimeExecuted, logEndTimeExecuted, editingLog]);
 
   useEffect(() => {
     if (!resizingState) return;
@@ -941,33 +944,73 @@ export default function ActivitiesPage() {
     e.preventDefault();
     if (!selectedActivity || !user || !profile) return;
 
-    if (!logStartTimeExecuted || !logEndTimeExecuted || !hoursToLog) {
-      alert("Por favor, informe horários de início e fim válidos para a execução.");
+    const hasTimes = !!(logStartTimeExecuted || logEndTimeExecuted);
+    if ((hasTimes && (!logStartTimeExecuted || !logEndTimeExecuted)) || !hoursToLog) {
+      alert("Por favor, informe horários de início e fim válidos para a execução ou defina o valor das horas.");
       return;
     }
 
     try {
-      await logHours({
-        person_id: user.uid,
-        person_name: profile.full_name,
-        activity_id: selectedActivity.id,
-        activity_title: selectedActivity.title,
-        project_id: selectedActivity.project_id,
-        project_name: selectedActivity.project_name,
-        log_date: new Date().toISOString().split("T")[0],
-        hours: Number(hoursToLog),
-        description: logDescription,
-        is_overtime: false,
-      });
+      if (editingLog) {
+        const updatedHours = Number(hoursToLog);
+        
+        await updateTimeLog(editingLog.id, {
+          hours: updatedHours,
+          description: logDescription,
+          start_time: logStartTimeExecuted || null,
+          end_time: logEndTimeExecuted || null,
+        }, editingLog);
 
-      // Update in memory executed hours for this activity
-      setActivities((prev) =>
-        prev.map((act) =>
-          act.id === selectedActivity.id
-            ? { ...act, hours_executed: act.hours_executed + Number(hoursToLog) }
-            : act
-        )
-      );
+        const diff = updatedHours - editingLog.hours;
+        setActivities((prev) =>
+          prev.map((act) =>
+            act.id === selectedActivity.id
+              ? { ...act, hours_executed: Math.max(0, act.hours_executed + diff) }
+              : act
+          )
+        );
+
+        setSelectedActivity((prev) => prev ? { ...prev, hours_executed: Math.max(0, prev.hours_executed + diff) } : null);
+
+        setActivityLogs((prev) =>
+          prev.map((l) =>
+            l.id === editingLog.id
+              ? {
+                  ...l,
+                  hours: updatedHours,
+                  description: logDescription,
+                  start_time: logStartTimeExecuted || undefined,
+                  end_time: logEndTimeExecuted || undefined,
+                }
+              : l
+          )
+        );
+
+        setEditingLog(null);
+      } else {
+        await logHours({
+          person_id: user.uid,
+          person_name: profile.full_name,
+          activity_id: selectedActivity.id,
+          activity_title: selectedActivity.title,
+          project_id: selectedActivity.project_id,
+          project_name: selectedActivity.project_name,
+          log_date: new Date().toISOString().split("T")[0],
+          hours: Number(hoursToLog),
+          description: logDescription,
+          is_overtime: false,
+          start_time: logStartTimeExecuted || undefined,
+          end_time: logEndTimeExecuted || undefined,
+        });
+
+        setActivities((prev) =>
+          prev.map((act) =>
+            act.id === selectedActivity.id
+              ? { ...act, hours_executed: act.hours_executed + Number(hoursToLog) }
+              : act
+          )
+        );
+      }
 
       setIsLogHoursOpen(false);
       setSelectedActivity(null);
@@ -975,8 +1018,9 @@ export default function ActivitiesPage() {
       setLogStartTimeExecuted("");
       setLogEndTimeExecuted("");
       setLogDescription("");
+      setEditingLog(null);
     } catch (error) {
-      console.error("Erro ao lançar horas:", error);
+      console.error("Erro ao salvar horas:", error);
     }
   };
 
@@ -1021,6 +1065,26 @@ export default function ActivitiesPage() {
       console.error("Erro ao excluir lançamento de horas:", error);
       alert("Erro ao excluir lançamento de horas. Por favor, tente novamente.");
     }
+  };
+
+  const handleStartEditLog = (log: TimeLog) => {
+    setEditingLog(log);
+    setLogStartTimeExecuted(log.start_time || "");
+    setLogEndTimeExecuted(log.end_time || "");
+    setLogDescription(log.description || "");
+    if (!log.start_time || !log.end_time) {
+      setHoursToLog(log.hours.toString());
+    }
+  };
+
+  const handleCancelLogHours = () => {
+    setIsLogHoursOpen(false);
+    setSelectedActivity(null);
+    setHoursToLog("");
+    setLogStartTimeExecuted("");
+    setLogEndTimeExecuted("");
+    setLogDescription("");
+    setEditingLog(null);
   };
 
   const handleMoveStatus = async (activity: Activity, status: Activity["status"]) => {
@@ -4335,11 +4399,13 @@ export default function ActivitiesPage() {
       {/* LANÇAR HORAS MODAL */}
       {isLogHoursOpen && selectedActivity && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsLogHoursOpen(false)} />
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={handleCancelLogHours} />
           <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900 p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-zinc-950/20 [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-750">
-            <h2 className="text-lg font-bold text-white mb-4">Lançar Horas de Trabalho</h2>
+            <h2 className="text-lg font-bold text-white mb-4">
+              {editingLog ? "Editar Lançamento de Horas" : "Lançar Horas de Trabalho"}
+            </h2>
             <p className="text-xs text-zinc-450 mb-6">
-              Lançando progresso na atividade: <strong className="text-white">&quot;{selectedActivity.title}&quot;</strong>
+              {editingLog ? "Editando" : "Lançando"} progresso na atividade: <strong className="text-white">&quot;{selectedActivity.title}&quot;</strong>
             </p>
             <form onSubmit={handleLogHoursSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
@@ -4347,7 +4413,7 @@ export default function ActivitiesPage() {
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Hora de Início</label>
                   <input
                     type="time"
-                    required
+                    required={!editingLog}
                     value={logStartTimeExecuted}
                     onChange={(e) => setLogStartTimeExecuted(e.target.value)}
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-sm text-white focus:border-emerald-500/50 focus:outline-none"
@@ -4357,7 +4423,7 @@ export default function ActivitiesPage() {
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Hora de Fim</label>
                   <input
                     type="time"
-                    required
+                    required={!editingLog}
                     value={logEndTimeExecuted}
                     onChange={(e) => setLogEndTimeExecuted(e.target.value)}
                     className="w-full rounded-lg border border-zinc-800 bg-zinc-950 p-2.5 text-sm text-white focus:border-emerald-500/50 focus:outline-none"
@@ -4391,7 +4457,7 @@ export default function ActivitiesPage() {
               <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800">
                 <button
                   type="button"
-                  onClick={() => setIsLogHoursOpen(false)}
+                  onClick={handleCancelLogHours}
                   className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2 text-xs font-semibold text-zinc-450 hover:bg-zinc-800 hover:text-white transition-all cursor-pointer"
                 >
                   Cancelar
@@ -4400,7 +4466,7 @@ export default function ActivitiesPage() {
                   type="submit"
                   className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-zinc-100 transition-all cursor-pointer"
                 >
-                  Lançar
+                  {editingLog ? "Salvar" : "Lançar"}
                 </button>
               </div>
             </form>
@@ -4427,14 +4493,24 @@ export default function ActivitiesPage() {
                             {log.hours}h
                           </span>
                           {(log.person_id === user?.uid || profile?.role === "admin" || profile?.role === "gestor") && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTimeLog(log)}
-                              className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-900 transition-colors cursor-pointer flex items-center justify-center"
-                              title="Excluir lançamento"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditLog(log)}
+                                className="text-zinc-500 hover:text-emerald-400 p-1 rounded hover:bg-zinc-900 transition-colors cursor-pointer flex items-center justify-center"
+                                title="Editar lançamento"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTimeLog(log)}
+                                className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-900 transition-colors cursor-pointer flex items-center justify-center"
+                                title="Excluir lançamento"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
